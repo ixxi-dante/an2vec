@@ -8,6 +8,7 @@ Data folders
 
 The `data/` folder contains pointers to all the data we process and the outputs of processing:
 
+```
 data
 ├── karate           # Test network
 ├── sosweet-raw      # Raw Twitter data
@@ -18,6 +19,7 @@ data
 │     -> /datastore/complexnet/nw2vec/sosweet-text
 └── sosweet-w2v      # Files encoding the word2vec embeddings of words from tweets
       -> /datastore/complexnet/nw2vec/sosweet-w2v
+```
 
 Setup
 -----
