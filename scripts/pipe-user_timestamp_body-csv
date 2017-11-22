@@ -1,0 +1,10 @@
+#!/bin/bash
+# Extract user_id, tweet timestamp and body, from a pipe, and pipe it out as csv
+
+# Don't tolerate errors
+set -e
+
+# sed removes leading text which sometimes appears before a valid json line
+# jq -R '...' outputs only the valid json lines, skipping those that are not valid json
+# jq -r '...' does our actual parsing to extract the data we want
+sed 's/^[^{]*//g' | jq -R 'fromjson?' | jq -r '{user_id: .actor.id | ltrimstr("id:twitter.com:") | tonumber, timestamp: .postedTime, body: .body} | [.[]] | @csv'
