@@ -1,0 +1,48 @@
+#!/bin/bash
+# Iterate a pipe over gzipped files, outputting other gzipped files
+
+# Don't tolerate errors
+set -e
+
+if [ $# -lt 3 ]; then
+  echo "Usage: $(basename $0) PIPE_SCRIPT OUT_DIRECTORY IN_FILE [ IN_FILE ... ]"
+  exit 1
+fi
+
+# Extract our arguments
+pipe=$1
+
+if [ ! -e "$pipe" ]; then
+  echo "Pipe '$pipe' not found"
+  exit 1
+fi
+
+outdir=$2
+if [ ! -d "$outdir" ]; then
+  echo "Out folder '$outdir' not found"
+  exit 1
+fi
+
+# Check we're not doing something stupid
+if [ -n "$(ls -A $outdir)" ]; then
+  echo "'$outdir' is not empty. Are you sure you want to continue? (type 'yes')"
+  read answer
+  if [ x"$answer" != "xyes" ]; then
+    echo "Aborting."
+    exit 1
+  fi
+fi
+
+# Extract the files to process
+shift 2
+inpaths=$@
+
+# Pipe the files and save the results
+for inpath in $inpaths; do
+  infile="$(basename $inpath)"
+  outfile="$outdir/${infile%.*}-$(basename $pipe).gz"
+  echo "Processing '$infile' ..."
+  zcat "$inpath" | "$pipe" | gzip -f > "$outfile"
+done
+
+echo "\033\1;32mAll done.\033[0m"
