@@ -19,11 +19,8 @@ data
 └── sosweet-w2v      # Files encoding the word2vec embeddings of words from tweets
       -> /datastore/complexnet/nw2vec/sosweet-w2v
 
-Analyses
---------
-
 Setup
-^^^^^
+-----
 
 First, using Anaconda, set up the environment with `conda env create -f environment.yml`.
 
@@ -33,7 +30,7 @@ Then, in this order, and assuming you have access to the raw Twitter data in `da
 * Compute the network embeddings by running the `sosweet-node2vec.ipynb` notebook
 * Extract the raw text of tweets: `scripts/iter-gz scripts/pipe-user_timestamp_body-csv data/sosweet-text $(ls data/sosweet-raw/2016*.tgz data/sosweet-raw/2017*.tgz)`
 
-Actual analyses
----------------
+Analyses
+--------
 
 Nothing done yet.
