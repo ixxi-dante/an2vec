@@ -10,7 +10,9 @@ if [ $# -lt 3 ]; then
 fi
 
 # Extract our arguments
-pipe=$1
+pipecmd=$1
+pipecmdarray=($pipecmd)
+pipe=${pipecmdarray[0]}
 
 if [ ! -e "$pipe" ]; then
   echo "Pipe '$pipe' not found"
@@ -42,7 +44,7 @@ for inpath in $inpaths; do
   infile="$(basename $inpath)"
   outfile="$outdir/${infile%.*}-$(basename $pipe).gz"
   echo "Processing '$infile' ..."
-  zcat "$inpath" | "$pipe" | gzip -f > "$outfile"
+  zcat "$inpath" | $pipecmd | gzip -f > "$outfile"
 done
 
-echo -e "\033\1;32mAll done.\033[0m"
+echo -e "\033[1;32mAll done.\033[0m"
