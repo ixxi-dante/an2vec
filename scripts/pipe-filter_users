@@ -1,0 +1,12 @@
+#!/bin/bash
+# Keep only lines that start with a user_id in a given file
+
+# Don't tolerate errors
+set -e
+
+if [ $# != 1 ]; then
+  echo "Usage: $(basename $0) USER_IDS_FILE"
+  exit 1
+fi
+
+grep -wFf $1
