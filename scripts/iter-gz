@@ -45,4 +45,4 @@ for inpath in $inpaths; do
   zcat "$inpath" | "$pipe" | gzip -f > "$outfile"
 done
 
-echo "\033\1;32mAll done.\033[0m"
+echo -e "\033\1;32mAll done.\033[0m"
