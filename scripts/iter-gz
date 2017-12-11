@@ -5,11 +5,20 @@
 set -e
 
 if [ $# -lt 3 ]; then
-  echo "Usage: $(basename $0) PIPE_SCRIPT OUT_DIRECTORY IN_FILE [ IN_FILE ... ]"
+  echo "Usage: $(basename $0) [ --no-gzip ] PIPE_SCRIPT OUT_DIRECTORY IN_FILE [ IN_FILE ... ]"
   exit 1
 fi
 
 # Extract our arguments
+if [ "$1" == "--no-gzip" ]; then
+  GZIPCMD=""
+  GZIPEXT=""
+  shift
+else
+  GZIPCMD="| gzip -f"
+  GZIPEXT=".gz"
+fi
+
 pipecmd=$1
 pipecmdarray=($pipecmd)
 pipe=${pipecmdarray[0]}
@@ -42,9 +51,9 @@ inpaths=$@
 # Pipe the files and save the results
 for inpath in $inpaths; do
   infile="$(basename $inpath)"
-  outfile="$outdir/${infile%.*}-$(basename $pipe).gz"
+  outfile="$outdir/${infile%.*}-$(basename $pipe)$GZIPEXT"
   echo "Processing '$infile' ..."
-  zcat "$inpath" | $pipecmd | gzip -f > "$outfile"
+  zcat "$inpath" | $pipecmd $GZIPCMD > "$outfile"
 done
 
 echo -e "\033[1;32mAll done.\033[0m"
