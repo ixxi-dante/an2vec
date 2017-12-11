@@ -42,7 +42,7 @@ scripts/iter-gz \
 ```bash
 cat data/sosweet-network/undir_weighted_mention_network_thresh_5.txt \
     | scripts/pipe-unique_users \
-    > data/sosweet-network/undir_weighted_mention_network_thresh_5.users2.txt
+    > data/sosweet-network/undir_weighted_mention_network_thresh_5.users.txt
 ```
 * Filter the raw text of tweets for only those users:
 ```bash
@@ -52,7 +52,7 @@ mkdir -p data/sosweet-text/undir_weighted_mention_network_thresh_5
 scripts/iter-gz \
     --no-gzip \
     "scripts/pipe-filter_users data/sosweet-network/undir_weighted_mention_network_thresh_5.users.txt" \
-    data/sosweet-text/undir_weighted_mention_network_thresh_5/ \
+    data/sosweet-text/undir_weighted_mention_network_thresh_5 \
     $(ls data/sosweet-text/*.gz)
 ```
 
