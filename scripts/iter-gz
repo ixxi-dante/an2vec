@@ -11,11 +11,11 @@ fi
 
 # Extract our arguments
 if [ "$1" == "--no-gzip" ]; then
-  GZIPCMD=""
+  GZIP="cat"
   GZIPEXT=""
   shift
 else
-  GZIPCMD="| gzip -f"
+  GZIP="gzip -f"
   GZIPEXT=".gz"
 fi
 
@@ -53,7 +53,7 @@ for inpath in $inpaths; do
   infile="$(basename $inpath)"
   outfile="$outdir/${infile%.*}-$(basename $pipe)$GZIPEXT"
   echo "Processing '$infile' ..."
-  zcat "$inpath" | $pipecmd $GZIPCMD > "$outfile"
+  zcat "$inpath" | $pipecmd | $GZIP > "$outfile"
 done
 
 echo -e "\033[1;32mAll done.\033[0m"
