@@ -1,4 +1,4 @@
 #!/bin/bash
 # Start the Dask cluster on the crunch machines
 
-dask-ssh --scheduler orange --hostfile data/dask-cluster/hosts-lip.txt --log-directory /datastore/complexnet/nw2vec/dask-cluster/log
+dask-ssh --scheduler orange --hostfile data/dask-cluster/slaves --log-directory /datastore/complexnet/nw2vec/dask-cluster/log
