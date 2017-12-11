@@ -6,5 +6,6 @@ set -e
 
 # sed removes leading text which sometimes appears before a valid json line
 # jq -R '...' outputs only the valid json lines, skipping those that are not valid json
-# jq -r '...' does our actual parsing to extract the data we want
-sed 's/^[^{]*//g' | jq -R 'fromjson?' | jq -r '{user_id: .actor.id | ltrimstr("id:twitter.com:") | tonumber, timestamp: .postedTime, body: .body} | [.[]] | @csv'
+# jq '...' does our actual parsing to extract the data we want
+# the final sed turns the quoted strings output by jq into csv lines (otherwise, using 'jq -r' prints newlines in the json as actual newlines in the csv, see https://github.com/stedolan/jq/issues/48#issuecomment-55262164 )
+sed 's/^[^{]*//g' | jq -R 'fromjson?' | jq '[(.actor.id | ltrimstr("id:twitter.com:") | tonumber), .postedTime, .body] | @csv' | sed 's/^"//g;s/"$//g;s/\\"/"/g'
