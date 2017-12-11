@@ -27,10 +27,34 @@ Setup
 First, using Anaconda, set up the environment with `conda env create -f environment.yml`.
 
 Then, in this order, and assuming you have access to the raw Twitter data in `data/sosweet-raw`:
+
 * Compute the word2vec embeddings: TODO: document
 * Extract the networks of users: TODO: document
 * Compute the network embeddings by running the `sosweet-node2vec.ipynb` notebook
-* Extract the raw text of tweets: `scripts/iter-gz scripts/pipe-user_timestamp_body-csv data/sosweet-text $(ls data/sosweet-raw/2016*.tgz data/sosweet-raw/2017*.tgz)`
+* Extract the raw text of tweets:
+```bash
+scripts/iter-gz \
+    scripts/pipe-user_timestamp_body-csv \
+    data/sosweet-text \
+    $(ls data/sosweet-raw/2016*.tgz data/sosweet-raw/2017*.tgz)
+```
+* Extract the user ids for the 5-mutual-mention network:
+```bash
+cat data/sosweet-network/undir_weighted_mention_network_thresh_5.txt \
+    | scripts/pipe-unique_users \
+    > data/sosweet-network/undir_weighted_mention_network_thresh_5.users2.txt
+```
+* Filter the raw text of tweets for only those users:
+```bash
+# Create the destination folder
+mkdir -p data/sosweet-text/undir_weighted_mention_network_thresh_5
+# Run the filter
+scripts/iter-gz \
+    --no-gzip \
+    "scripts/pipe-filter_users data/sosweet-network/undir_weighted_mention_network_thresh_5.users.txt" \
+    data/sosweet-text/undir_weighted_mention_network_thresh_5/ \
+    $(ls data/sosweet-text/*.gz)
+```
 
 Analyses
 --------
