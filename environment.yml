@@ -1,23 +1,41 @@
 name: base36
 channels:
+- conda-forge
 - defaults
 dependencies:
+- boost-cpp=1.64.0=1
+- bzip2=1.0.6=1
+- curl=7.52.1=0
+- hdfs3=0.3.0=py36_0
+- libgcrypt=1.8.0=1
+- libgpg-error=1.27=1
+- libgsasl=1.8.0=1
+- libhdfs3=2.3=0
+- protobuf=3.3.2=py36_0
 - asn1crypto=0.22.0=py36h265ca7c_1
+- bcrypt=3.1.4=py36h621fe67_0
 - bleach=2.0.0=py36h688b259_0
+- bokeh=0.12.10=py36hbb0e44a_0
+- boost=1.60.0=py36_0
 - boto=2.48.0=py36h6e4cd66_1
 - bz2file=0.98=py36_0
 - ca-certificates=2017.08.26=h1d4fec5_0
 - certifi=2017.7.27.1=py36h8b7b77e_0
 - cffi=1.10.0=py36had8d393_1
 - chardet=3.0.4=py36h0f667ec_1
+- click=6.7=py36h5253387_0
+- cloudpickle=0.5.2=py36h84cdd9c_0
 - cryptography=2.0.3=py36ha225213_1
 - cycler=0.10.0=py36h93f1223_0
 - cymem=1.31.2=py36_0
 - cython=0.26.1=py36h21c49d0_0
 - cytoolz=0.8.2=py36h708bfd4_0
+- dask=0.16.0=py36h73d177f_0
+- dask-core=0.16.0=py36ha827fd6_0
 - dbus=1.10.22=h3b5a359_0
 - decorator=4.1.2=py36hd076ac8_0
 - dill=0.2.7.1=py36h644ae93_0
+- distributed=1.20.0=py36h1c9f478_0
 - entrypoints=0.2.3=py36h1aec115_2
 - expat=2.2.5=he0dffb1_0
 - fontconfig=2.12.4=h88586e7_1
@@ -28,6 +46,7 @@ dependencies:
 - gmp=6.1.2=h6c8ec71_1
 - gst-plugins-base=1.12.2=he3457e5_0
 - gstreamer=1.12.2=h4f93127_0
+- heapdict=1.0.0=py36h79797d7_0
 - html5lib=0.999999999=py36h2cfc398_0
 - icu=58.2=h211956c_0
 - idna=2.6=py36h82fb2a8_1
@@ -45,19 +64,25 @@ dependencies:
 - jupyter_client=5.1.0=py36h614e9ea_0
 - jupyter_console=5.2.0=py36he59e554_1
 - jupyter_core=4.3.0=py36h357a921_0
+- krb5=1.13.2=0
 - libedit=3.1=heed3624_0
 - libffi=3.2.1=hd88cf55_4
 - libgcc-ng=7.2.0=h7cc24e2_2
 - libgfortran-ng=7.2.0=h9f7466a_2
+- libntlm=1.4=hbaadc6b_1
 - libpng=1.6.32=hda9c8bc_2
+- libprotobuf=3.4.1=h5b8497f_0
 - libsodium=1.0.13=h31c71d8_2
 - libstdcxx-ng=7.2.0=h7a57d05_2
+- libuuid=1.0.3=h5bb35a6_1
 - libxcb=1.12=h84ff03f_3
 - libxml2=2.9.4=h6b072ca_5
+- locket=0.2.0=py36h787c0ad_1
 - markupsafe=1.0=py36hd9260cd_1
 - matplotlib=2.1.0=py36hba5de38_0
 - mistune=0.8.1=py36h3d5977c_0
 - mkl=2018.0.0=hb491cac_4
+- msgpack-python=0.4.8=py36hec4c5d1_0
 - murmurhash=0.26.4=py36_0
 - nbconvert=5.3.1=py36hb41ffb7_0
 - nbformat=4.4.0=py36h31c9010_0
@@ -70,6 +95,8 @@ dependencies:
 - pandas=0.21.0=py36h78bd809_1
 - pandoc=1.19.2.1=hea2e7c5_1
 - pandocfilters=1.4.2=py36ha6701b7_1
+- paramiko=2.4.0=py36hd285e23_0
+- partd=0.3.8=py36h36fd896_0
 - pathlib=1.0.1=py36_0
 - patsy=0.4.1=py36ha3be15e_0
 - pcre=8.41=hc27e229_1
@@ -80,10 +107,13 @@ dependencies:
 - preshed=1.0.0=py36_0
 - progressbar2=3.18.1=py36_0
 - prompt_toolkit=1.0.15=py36h17d85b1_0
+- psutil=5.4.0=py36h84c53db_0
 - ptyprocess=0.5.2=py36h69acd42_0
 - py=1.5.2=py36h29bf505_0
+- pyasn1=0.3.7=py36h0f28794_0
 - pycparser=2.18=py36hf9f622e_1
 - pygments=2.2.0=py36h0d3125c_0
+- pynacl=1.2.0=py36hb6d7a8d_0
 - pyopenssl=17.2.0=py36h5cc804b_0
 - pyparsing=2.2.0=py36hee85983_1
 - pyqt=5.6.0=py36h0386399_5
@@ -94,6 +124,7 @@ dependencies:
 - python-dateutil=2.6.1=py36h88d3b88_1
 - python-utils=2.2.0=py36_0
 - pytz=2017.2=py36hc2ccc2a_1
+- pyyaml=3.12=py36hafb9ca4_1
 - pyzmq=16.0.2=py36h3b0cf96_2
 - qt=5.6.2=h974d657_12
 - qtconsole=4.3.1=py36h8f73b5b_0
@@ -108,9 +139,11 @@ dependencies:
 - sip=4.18.1=py36h51ed4ed_2
 - six=1.11.0=py36h372c433_1
 - smart_open=1.5.3=py36_0
+- sortedcontainers=1.5.7=py36hdf89491_0
 - spacy=1.9.0=py36hc78c2e1_1
 - sqlite=3.20.1=hb898158_2
 - statsmodels=0.8.0=py36h8533d0b_0
+- tblib=1.3.2=py36h34cf8b6_0
 - termcolor=1.1.0=py36_0
 - terminado=0.6=py36ha25a19f_0
 - testpath=0.3.1=py36h8cadb63_0
@@ -128,14 +161,17 @@ dependencies:
 - widgetsnbextension=3.0.2=py36hd01bb71_1
 - wrapt=1.10.11=py36h28b7045_0
 - xz=5.2.3=h55aa19d_2
+- yaml=0.1.7=had09818_2
 - zeromq=4.2.2=hbedb6e5_2
+- zict=0.1.3=py36h3a3bf81_0
 - zlib=1.2.11=ha838bed_2
 - pip:
+  - graphviz==0.8.1
   - ipython-genutils==0.2.0
   - jupyter-client==5.1.0
   - jupyter-console==5.2.0
   - jupyter-core==4.3.0
-  - "-e git+https://github.com/ixxi-dante/jwalk@fd8d2e83cf5726dfcba96b6ff6991e4cd974d594#egg=jwalk"
+  -  "-e git+https://github.com/ixxi-dante/jwalk@fd8d2e83cf5726dfcba96b6ff6991e4cd974d594#egg=jwalk"
   - prompt-toolkit==1.0.15
   - setuptools-scm==1.15.6
   - smart-open==1.5.3
