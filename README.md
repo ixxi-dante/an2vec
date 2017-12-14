@@ -34,6 +34,7 @@ Then, in this order, and assuming you have access to the raw Twitter data in `da
 * Extract the raw text of tweets:
 ```bash
 scripts/iter-gz \
+    --no-gzip \
     scripts/pipe-user_timestamp_body-csv \
     data/sosweet-text \
     $(ls data/sosweet-raw/2016*.tgz data/sosweet-raw/2017*.tgz)
@@ -53,7 +54,7 @@ scripts/iter-gz \
     --no-gzip \
     "scripts/pipe-filter_users data/sosweet-network/undir_weighted_mention_network_thresh_5.users.txt" \
     data/sosweet-text/undir_weighted_mention_network_thresh_5 \
-    $(ls data/sosweet-text/*.gz)
+    $(ls data/sosweet-text/*-csv)
 ```
 
 Analyses
