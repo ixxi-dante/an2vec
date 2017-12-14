@@ -1,4 +1,4 @@
 #!/bin/bash
 # Start the Dask cluster on the crunch machines
 
-dask-ssh --scheduler orange --hostfile data/dask-cluster/slaves --log-directory /datastore/complexnet/nw2vec/dask-cluster/log
+HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop dask-ssh --scheduler $(hostname) --hostfile data/dask-cluster/slaves --log-directory /datastore/complexnet/nw2vec/dask-cluster/log
