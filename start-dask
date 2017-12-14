@@ -1,4 +1,15 @@
 #!/bin/bash
 # Start the Dask cluster on the crunch machines
 
-HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop dask-ssh --scheduler $(hostname) --hostfile data/dask-cluster/slaves --log-directory /datastore/complexnet/nw2vec/dask-cluster/log
+# Configuration variables
+export HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop
+
+# Get the list of active (non-excluded) slaves
+ACTIVE_SLAVES=$(mktmp)
+cat $HADOOP_CONF_DIR/slaves | grep -v -Ff $HADOOP_CONF_DIR/exclude > $ACTIVE_SLAVES
+
+# Start the cluster
+HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop dask-ssh --scheduler $(hostname) --hostfile $ACTIVE_SLAVES --log-directory /datastore/complexnet/nw2vec/dask-cluster/log
+
+# Clean up
+rm $ACTIVE_SLAVES
