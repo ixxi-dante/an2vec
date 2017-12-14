@@ -53,7 +53,7 @@ for inpath in $inpaths; do
   infile="$(basename $inpath)"
   outfile="$outdir/${infile%.*}-$(basename $pipe)$GZIPEXT"
   echo "Processing '$infile' ..."
-  zcat "$inpath" | $pipecmd | $GZIP > "$outfile"
+  zcat -f "$inpath" | $pipecmd | $GZIP > "$outfile"
 done
 
 echo -e "\033[1;32mAll done.\033[0m"
