@@ -1,11 +1,14 @@
 #!/bin/bash
 # Start the Dask cluster on the crunch machines
 
+# Don't tolerate errors
+set -e
+
 # Configuration variables
 export HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop
 
 # Get the list of active (non-excluded) slaves
-ACTIVE_SLAVES=$(mktmp)
+ACTIVE_SLAVES=$(mktemp)
 cat $HADOOP_CONF_DIR/slaves | grep -v -Ff $HADOOP_CONF_DIR/exclude > $ACTIVE_SLAVES
 
 # Start the cluster
