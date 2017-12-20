@@ -1,5 +1,5 @@
 [package]
-name = "nw2vec-tools"
+name = "rust-utils"
 version = "0.1.0"
 authors = ["Sébastien Lerique <sl@mehho.net>"]
 

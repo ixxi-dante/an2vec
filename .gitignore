@@ -1,4 +1,10 @@
+# Standard Python stuff
 __pycache__/
 .ipynb_checkpoints/
+
 # jwalk creates a `src` folder which we don't want
 /src/
+
+# Packaging left-overs
+/nw2vec.egg-info/
+/nw2vec/*.so
