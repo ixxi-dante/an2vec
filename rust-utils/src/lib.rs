@@ -3,7 +3,7 @@
 extern crate pyo3;
 use pyo3::prelude::*;
 
-#[py::modinit(libnw2vec_tools)]
+#[py::modinit(_rust_utils)]
 fn init_mod(py: Python, m: &PyModule) -> PyResult<()> {
 
     #[pyfn(m, "sum_as_string")]
