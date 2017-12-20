@@ -1,0 +1,11 @@
+[package]
+name = "nw2vec-tools"
+version = "0.1.0"
+authors = ["Sébastien Lerique <sl@mehho.net>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies.pyo3]
+version = "0.2"
+features = ["extension-module"]
