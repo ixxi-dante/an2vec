@@ -1,4 +1,4 @@
 __pycache__/
 .ipynb_checkpoints/
 # jwalk creates a `src` folder which we don't want
-src/
+/src/
