@@ -30,6 +30,7 @@ Next, compile the rust extensions:
 
 ```bash
 cd nw2vec-tools
+rustup toolchain install nightly
 rustup override set nightly
 cargo build --release
 ```
