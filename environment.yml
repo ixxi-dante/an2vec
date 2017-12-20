@@ -171,7 +171,7 @@ dependencies:
   - jupyter-client==5.1.0
   - jupyter-console==5.2.0
   - jupyter-core==4.3.0
-  -  "-e git+https://github.com/ixxi-dante/jwalk@fd8d2e83cf5726dfcba96b6ff6991e4cd974d594#egg=jwalk"
+  -  "--editable=git+https://github.com/ixxi-dante/jwalk@fd8d2e83cf5726dfcba96b6ff6991e4cd974d594#egg=jwalk"
   - prompt-toolkit==1.0.15
   - setuptools-scm==1.15.6
   - smart-open==1.5.3
