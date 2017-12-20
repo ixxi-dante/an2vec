@@ -24,16 +24,14 @@ data
 Setup
 -----
 
-First, using Anaconda, set up the environment with `conda env create -f environment.yml`.
-
-Next, compile the rust extensions:
+First, make sure you have Rust nightly and that it's the default toolchain in the current directory:
 
 ```bash
-cd nw2vec-tools
 rustup toolchain install nightly
 rustup override set nightly
-cargo build --release
 ```
+
+Next, using Anaconda, set up the environment with `conda env create -f environment.yml` (this builds the Rust extensions in this package, and installs them locally). If you make changes to the Rust extensions (in `rust-utils`), make sure to run `pip install -e .` to recompile.
 
 Then, in this order, and assuming you have access to the raw Twitter data in `data/sosweet-raw`:
 
