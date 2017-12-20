@@ -26,6 +26,14 @@ Setup
 
 First, using Anaconda, set up the environment with `conda env create -f environment.yml`.
 
+Next, compile the rust extensions:
+
+```bash
+cd nw2vec-tools
+rustup override set nightly
+cargo build --release
+```
+
 Then, in this order, and assuming you have access to the raw Twitter data in `data/sosweet-raw`:
 
 * Compute the word2vec embeddings: TODO: document
