@@ -6,6 +6,7 @@ authors = ["Sébastien Lerique <sl@mehho.net>"]
 [lib]
 crate-type = ["cdylib"]
 
-[dependencies.pyo3]
-version = "0.2"
-features = ["extension-module"]
+[dependencies]
+pyo3 = { version = "0.2", features = ["extension-module"] }
+rayon = "0.9"
+regex = "0.2"
