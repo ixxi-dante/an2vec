@@ -1,7 +1,15 @@
 name: base36
 channels:
+- conda-forge
 - defaults
 dependencies:
+- jupyter_contrib_core=0.3.3=py36_1
+- jupyter_contrib_nbextensions=0.3.3=py36_0
+- jupyter_highlight_selected_word=0.1.0=py36_0
+- jupyter_latex_envs=1.4.0=py36_1
+- jupyter_nbextensions_configurator=0.4.0=py36_0
+- libxslt=1.1.32=0
+- lxml=4.1.1=py36_0
 - asn1crypto=0.24.0=py36_0
 - attrs=17.3.0=py36h5ab58ff_0
 - bcrypt=3.1.4=py36h621fe67_0
@@ -77,6 +85,7 @@ dependencies:
 - libgpg-error=1.27=h14c3975_2
 - libgsasl=1.8.0=h14c3975_3
 - libhdfs3=2.3.0=h97226ba_1
+- libiconv=1.15=h63c8f33_5
 - libntlm=1.4=h14c3975_2
 - libpng=1.6.34=hb9fc6fc_0
 - libprotobuf=3.4.1=h5b8497f_0
@@ -191,7 +200,12 @@ dependencies:
   - ipython-genutils==0.2.0
   - jupyter-client==5.2.1
   - jupyter-console==5.2.0
+  - jupyter-contrib-core==0.3.3
+  - jupyter-contrib-nbextensions==0.3.3
   - jupyter-core==4.4.0
+  - jupyter-highlight-selected-word==0.1.0
+  - jupyter-latex-envs==1.4.0
+  - jupyter-nbextensions-configurator==0.4.0
   - jupyterlab-launcher==0.10.2
   - prompt-toolkit==1.0.15
   - semantic-version==2.6.0
