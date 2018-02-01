@@ -3,7 +3,6 @@ channels:
 - conda-forge
 - defaults
 dependencies:
-- imageio=2.2.0=py36_0
 - ipyvolume=0.4.5=py36_0
 - ipywebrtc=0.3.0=py36_0
 - jupyter_contrib_core=0.3.3=py36_1
@@ -11,11 +10,6 @@ dependencies:
 - jupyter_highlight_selected_word=0.1.0=py36_0
 - jupyter_latex_envs=1.4.0=py36_1
 - jupyter_nbextensions_configurator=0.4.0=py36_0
-- libtiff=4.0.9=0
-- olefile=0.44=py36_0
-- pillow=5.0.0=py36_0
-- pywavelets=0.5.2=py36_1
-- scikit-image=0.13.1=py36_0
 - traittypes=0.0.6=py36_0
 - asn1crypto=0.24.0=py36_0
 - attrs=17.4.0=py36_0
@@ -35,7 +29,7 @@ dependencies:
 - cloudpickle=0.5.2=py36h84cdd9c_0
 - coverage=4.4.2=py36hca7c4c5_0
 - cryptography=2.1.4=py36hd09be54_0
-- curl=7.57.0=h84994c4_0
+- curl=7.58.0=h84994c4_0
 - cycler=0.10.0=py36h93f1223_0
 - cymem=1.31.2=py36_0
 - cython=0.27.3=py36h1860423_0
@@ -64,11 +58,12 @@ dependencies:
 - hypothesis=3.38.5=py36h196a6cc_0
 - icu=58.2=h9c2bf20_1
 - idna=2.6=py36h82fb2a8_1
+- imageio=2.2.0=py36he555465_0
 - intel-openmp=2018.0.0=hc7b2577_8
 - ipykernel=4.8.0=py36_0
 - ipython=6.2.1=py36h88c514a_1
 - ipython_genutils=0.2.0=py36hb52b0d5_0
-- ipywidgets=7.1.0=py36_0
+- ipywidgets=7.1.1=py36_0
 - jedi=0.11.1=py36_0
 - jinja2=2.10=py36ha16c418_0
 - joblib=0.11=py36_0
@@ -78,12 +73,12 @@ dependencies:
 - jupyter_client=5.2.2=py36_0
 - jupyter_console=5.2.0=py36he59e554_1
 - jupyter_core=4.4.0=py36h7c827e3_0
-- jupyterlab=0.31.1=py36_0
+- jupyterlab=0.31.2=py36_0
 - jupyterlab_launcher=0.10.2=py36_0
 - keras=2.1.3=py36_0
 - krb5=1.14.2=hcdc1b81_6
 - libboost=1.65.1=habcd387_4
-- libcurl=7.57.0=h1ad7b7a_0
+- libcurl=7.58.0=h1ad7b7a_0
 - libedit=3.1=heed3624_0
 - libffi=3.2.1=hd88cf55_4
 - libgcc-ng=7.2.0=h7cc24e2_2
@@ -99,6 +94,7 @@ dependencies:
 - libsodium=1.0.15=hf101ebd_0
 - libssh2=1.8.0=h9cfc8f7_4
 - libstdcxx-ng=7.2.0=h7a57d05_2
+- libtiff=4.0.9=h28f6b97_0
 - libuuid=1.0.3=h1bed415_2
 - libxcb=1.12=hcd93eb1_4
 - libxml2=2.9.7=h26e45fe_0
@@ -117,8 +113,9 @@ dependencies:
 - ncurses=6.0=h9df7e31_2
 - networkx=2.1=py36_0
 - nltk=3.2.5=py36h7532b22_0
-- notebook=5.3.1=py36_1
+- notebook=5.3.1=py36_2
 - numpy=1.12.1=py36he24570b_1
+- olefile=0.45.1=py36_0
 - openssl=1.0.2n=hb7f436b_0
 - pandas=0.22.0=py36hf484d3e_0
 - pandoc=1.19.2.1=hea2e7c5_1
@@ -131,6 +128,7 @@ dependencies:
 - pcre=8.41=hc27e229_1
 - pexpect=4.3.1=py36_0
 - pickleshare=0.7.4=py36h63277f8_0
+- pillow=5.0.0=py36h3deb7b8_0
 - pip=9.0.1=py36h6c6f9ce_4
 - plac=0.9.6=py36_0
 - pluggy=0.6.0=py36hb689045_0
@@ -158,6 +156,7 @@ dependencies:
 - python-dateutil=2.6.1=py36h88d3b88_1
 - python-utils=2.2.0=py36_0
 - pytz=2017.3=py36h63b9c63_0
+- pywavelets=0.5.2=py36he602eb0_0
 - pyyaml=3.12=py36hafb9ca4_1
 - pyzmq=16.0.3=py36he2533c7_0
 - qt=5.6.2=h974d657_12
@@ -165,6 +164,7 @@ dependencies:
 - readline=7.0=ha6073c6_4
 - regex=2017.4.5=py36_0
 - requests=2.18.4=py36he2e5f8d_1
+- scikit-image=0.13.1=py36h14c3975_1
 - scikit-learn=0.19.1=py36h7aa7ec6_0
 - scipy=1.0.0=py36hbf646e7_0
 - seaborn=0.8.1=py36hfad7ec4_0
@@ -176,7 +176,7 @@ dependencies:
 - smart_open=1.5.3=py36_0
 - sortedcontainers=1.5.9=py36_0
 - spacy=2.0.5=py36hf484d3e_0
-- sqlite=3.21.0=h1bed415_2
+- sqlite=3.22.0=h1bed415_0
 - statsmodels=0.8.0=py36h8533d0b_0
 - tblib=1.3.2=py36h34cf8b6_0
 - tensorflow=1.1.0=np112py36_0
