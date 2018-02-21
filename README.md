@@ -3,6 +3,31 @@ Node-word-2vec
 
 Bring those two things together! Do cool context- and language-aware stuff! Okay, let's fill this a little more precisely now.
 
+Setup
+-----
+
+First, make sure you have Rust nightly and that it's the default toolchain in the current directory:
+
+```bash
+rustup toolchain install nightly
+rustup override set nightly
+```
+
+Next, using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
+
+`environment.lock.yml` contains the full list of packages and their versions to duplicate the environment we use in development.
+To upgrade packages in that environment, use `environment.yml` instead:
+it only includes the top-level required packages without versions, and conda will resolve to updated package versions.
+
+Finally, if you make changes to the Rust extensions (in `rust-utils`), make sure to run `pip install -e .` to recompile.
+
+Analyses
+--------
+
+Have a look at the [wiki](https://github.com/ixxi-dante/nw2vec/wiki) to track current progress.
+For now, we don't use anything in the `data/` folder, so you can ignore the sections below this and jump directly to the wiki after having installed the environment.
+If, however, you want to play with the Twitter data, read on.
+
 Data folders
 ------------
 
@@ -21,19 +46,7 @@ data
       -> /datastore/complexnet/nw2vec/sosweet-w2v
 ```
 
-Setup
------
-
-First, make sure you have Rust nightly and that it's the default toolchain in the current directory:
-
-```bash
-rustup toolchain install nightly
-rustup override set nightly
-```
-
-Next, using Anaconda, set up the environment with `conda env create -f environment.yml` (this builds the Rust extensions in this package, and installs them locally). If you make changes to the Rust extensions (in `rust-utils`), make sure to run `pip install -e .` to recompile.
-
-Then, in this order, and assuming you have access to the raw Twitter data in `data/sosweet-raw`:
+To set these up, and assuming you have access to the raw Twitter data in `data/sosweet-raw`:
 
 * Compute the word2vec embeddings: TODO: document
 * Extract the networks of users: TODO: document
@@ -64,7 +77,3 @@ scripts/iter-gz \
     $(ls data/sosweet-text/*-csv)
 ```
 
-Analyses
---------
-
-Nothing done yet.
