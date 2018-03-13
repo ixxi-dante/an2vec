@@ -29,6 +29,7 @@ dependencies:
 - pandas
 - pip
 - progressbar2
+- pydot
 - pytest
 - scikit-learn
 - scipy
