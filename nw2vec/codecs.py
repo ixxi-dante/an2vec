@@ -18,13 +18,9 @@ class Codec:
         raise NotImplementedError
 
 
-@functools.lru_cache(typed=True)
 class Gaussian(Codec):
 
     """TODOC"""
-
-    # encoders for mu, logD, and u are all Gaussian, and will
-    # typically share part of their weights (e.g. a first layer).
 
     def __init__(self, μlogDu_flat):
         """TODOC"""
@@ -93,5 +89,19 @@ class Gaussian(Codec):
                      - self.dim)
 
 
-class Bernouilli(Codec):
-    pass
+class Bernoulli(Codec):
+
+    def __init__(self, probs):
+        """TODOC"""
+        self.probs = probs
+
+    # TOTEST
+    def logprobability(self, v):
+        """TODOC"""
+        assert v.shape = self.probs.shape
+        return K.sum(v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs), axis=-1)
+
+
+@functools.lru_cache(typed=True)
+def get(klass, *args, **kwargs):
+    return klass(*args, **kwargs)
