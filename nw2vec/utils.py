@@ -4,6 +4,7 @@ import logging
 from keras import backend as K
 import jwalk
 import numpy as np
+import tensorflow as tf
 
 
 logger = logging.getLogger(__name__)
@@ -24,10 +25,14 @@ def expand_dims_tile(array, dim_position, multiple):
     # the new shape list*, not in the old. So it's important we expand
     # the dimensions before indexing into the list of multiples with
     # `dim_position`.
-    array = K.expand_dims(array, dim_position)
+    if isinstance(array, tf.Tensor):
+        backend = K
+    else:
+        backend = np
+    array = backend.expand_dims(array, dim_position)
     multiples = np.ones(len(array.shape), dtype=np.int32)
     multiples[dim_position] = multiple
-    return K.tile(array, multiples)
+    return backend.tile(array, multiples)
 
 
 def node2vec(infile, outfile,
