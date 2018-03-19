@@ -55,8 +55,11 @@ class Bilinear(keras.layers.Layer):
         # The two tensors must have the same shape
         assert input_shapes[0] == input_shapes[1]
         shape = input_shapes[0]
+        # Make sure we have the right kind of input. This is a guard to find when we are
+        # called with `None` in `shape`.
+        assert None not in shape
         # Concretise bilin_axes for this shape
-        bilin_axes = [dim % len(shape) for dim in self.bilin_axes]
+        bilin_axes = [ax % len(shape) for ax in self.bilin_axes]
         # Reduction axis cannot be in bilin_axes
         assert (len(shape) - 1) not in bilin_axes
         assert -1 not in bilin_axes
@@ -102,9 +105,10 @@ class Bilinear(keras.layers.Layer):
                                     + [ax + n_bilin + n_diag for ax in diag_axes]))
         # Take the diagonal elements for all the non-bilinear axis couples
         perm_base = list(range(n_bilin)) + list(range(n_bilin + 1, n_bilin + n_diag))
-        for rem in range(n_bilin + n_diag - 1, n_bilin - 1, -1):
+        for n_reduced, rem in enumerate(range(n_bilin + n_diag - 1, n_bilin - 1, -1)):
             perm = (perm_base[:rem]
                     + [rem + 1 + ax for ax in perm_base[:rem]]
+                    + list(range(2 * (rem + 1), 2 * (rem + 1) + n_reduced))
                     + [n_bilin, rem + 1 + n_bilin])
             output = tf.transpose(output, perm=perm)
             assert output.shape[-1] == output.shape[-2]
@@ -112,7 +116,7 @@ class Bilinear(keras.layers.Layer):
         # Put the diagonal axes first, the bilinear axes last
         output = tf.transpose(output,
                               perm=(list(range(2 * n_bilin, 2 * n_bilin + n_diag))
-                                    + list(range(n_bilin * 2))))
+                                    + list(range(2 * n_bilin))))
 
         if self.use_bias:
             output = K.bias_add(output, self.bias)
