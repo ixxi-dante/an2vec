@@ -6,12 +6,97 @@ from nw2vec import codecs
 from nw2vec import utils
 
 
-# TODO: not only (not at all) a Dense layer
-# class GC(keras.layers.Layer):
-class GC(keras.layers.Dense):
+class GC(keras.layers.Layer):
 
-    def __init__(self, units, adj, **kwargs):
-        super(GC, self).__init__(units, **kwargs)
+    def __init__(self,
+                 units,
+                 adj,
+                 activation=None,
+                 use_bias=True,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 **kwargs):
+        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+
+        assert len(adj.shape) == 2 and adj.shape[0] == adj.shape[1]
+
+        super(GC, self).__init__(**kwargs)
+        self.units = units
+        self.adj = adj
+        self.activation = keras.activations.get(activation)
+        self.use_bias = use_bias
+        self.kernel_initializer = keras.initializers.get(kernel_initializer)
+        self.bias_initializer = keras.initializers.get(bias_initializer)
+        self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
+        self.bias_regularizer = keras.regularizers.get(bias_regularizer)
+        self.activity_regularizer = keras.regularizers.get(activity_regularizer)
+        self.kernel_constraint = keras.constraints.get(kernel_constraint)
+        self.bias_constraint = keras.constraints.get(bias_constraint)
+        self.input_spec = keras.engine.InputSpec(min_ndim=2)
+        self.supports_masking = True
+
+    def build(self, input_shape):
+        assert len(input_shape) >= 2
+        input_dim = input_shape[-1]
+
+        A_tilde = self.adj + tf.eye(self.adj.shape[0])
+        D_tilde_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=1)))
+        self.A_hat = D_tilde_inv_sqrt @ A_tilde @ D_tilde_inv_sqrt
+
+        self.kernel = self.add_weight(shape=(input_dim, self.units),
+                                      initializer=self.kernel_initializer,
+                                      name='kernel',
+                                      regularizer=self.kernel_regularizer,
+                                      constraint=self.kernel_constraint)
+        if self.use_bias:
+            self.bias = self.add_weight(shape=(self.units,),
+                                        initializer=self.bias_initializer,
+                                        name='bias',
+                                        regularizer=self.bias_regularizer,
+                                        constraint=self.bias_constraint)
+        else:
+            self.bias = None
+        self.input_spec = keras.engine.InputSpec(min_ndim=2, axes={-1: input_dim,
+                                                                   0: self.adj.shape[0]})
+        super(GC, self).build(input_shape)
+
+    def call(self, inputs):
+        output = self.A_hat @ inputs @ self.kernel
+        if self.use_bias:
+            output = K.bias_add(output, self.bias)
+        if self.activation is not None:
+            output = self.activation(output)
+        return output
+
+    def compute_output_shape(self, input_shape):
+        assert len(input_shape) >= 2
+        assert input_shape[-1] > 0
+        output_shape = list(input_shape)
+        output_shape[-1] = self.units
+        return tuple(output_shape)
+
+    def get_config(self):
+        config = {
+            'units': self.units,
+            'adj': self.adj,
+            'activation': keras.activations.serialize(self.activation),
+            'use_bias': self.use_bias,
+            'kernel_initializer': keras.initializers.serialize(self.kernel_initializer),
+            'bias_initializer': keras.initializers.serialize(self.bias_initializer),
+            'kernel_regularizer': keras.regularizers.serialize(self.kernel_regularizer),
+            'bias_regularizer': keras.regularizers.serialize(self.bias_regularizer),
+            'activity_regularizer': keras.regularizers.serialize(self.activity_regularizer),
+            'kernel_constraint': keras.constraints.serialize(self.kernel_constraint),
+            'bias_constraint': keras.constraints.serialize(self.bias_constraint)
+        }
+        base_config = super(keras.layers.Dense, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 
 
 class Bilinear(keras.layers.Layer):
