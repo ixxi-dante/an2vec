@@ -2,18 +2,47 @@ import keras
 from keras import backend as K
 
 from nw2vec import layers
-from nw2vec import utils
 from nw2vec import codecs
 
 
-# Example values for the parameters
-# dim_data = 40    # Dimension base features for each node
-# dim_l1 = 20      # Dimension of intermediate layers
-# dim_z = 5        # Dimension of the embedding space
-# n_ξ_samples = 10
+class ModelIO:
+
+    def __init__(self, input, model, codecs):
+        assert isinstance(codecs, (list, tuple))
+        assert len(model.outputs) == len(codecs)
+        self.input = input
+        self.model = model
+        self.codecs = tuple(codecs)
+
+    @property
+    def codec(self):
+        assert len(self.codecs) == 1
+        return self.codecs[0]
+
+    @staticmethod
+    def _kl_to_normal_loss_fn(codec):
+
+        def loss_fn(y_true, y_pred):
+            return codecs.get(codec, y_pred).kl_to_normal()
+
+        return loss_fn
+
+    def kl_to_normal_losses(self):
+        return [self._kl_to_normal_loss_fn(codec) for codec in self.codecs]
+
+    @staticmethod
+    def _estimated_pred_loss_fn(codec):
+
+        def loss_fn(y_true, y_pred):
+            return - K.mean(codecs.get(codec, y_pred).logprobability(y_true), axis=1)
+
+        return loss_fn
+
+    def estimated_pred_losses(self):
+        return [self._estimated_pred_loss_fn(codec) for codec in self.codecs]
 
 
-def build_q_model(adj, dims):
+def build_q_io(adj, dims):
     dim_data, dim_l1, dim_z = dims
 
     q_input = keras.layers.Input(shape=(dim_data,), name='q_input')
@@ -26,10 +55,10 @@ def build_q_model(adj, dims):
         [q_μ_flat, q_logD_flat, q_u_flat])
     q_model = keras.models.Model(inputs=q_input, outputs=q_μlogDu_flat)
 
-    return q_input, q_model, codecs.Gaussian
+    return ModelIO(q_input, q_model, (codecs.Gaussian,))
 
 
-def build_p_model(adj, dims):
+def build_p_io(adj, dims):
     dim_data, dim_l1, dim_z = dims
 
     p_input = keras.layers.Input(shape=(dim_z,), name='p_input')
@@ -37,7 +66,7 @@ def build_p_model(adj, dims):
     p_layer1 = keras.layers.Dense(dim_l1, use_bias=True, activation='relu',
                                   kernel_regularizer='l2', bias_regularizer='l2',
                                   name='p_layer1')(p_input)
-    p_adj = layers.Bilinear(0, adj.shape[0], use_bias=False, activation='sigmoid',
+    p_adj = layers.Bilinear(0, adj.shape[0], use_bias=False, activation='softmax',
                             kernel_regularizer='l2', bias_regularizer='l2',
                             name='p_adj')([p_layer1, p_layer1])
     p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=True,
@@ -53,34 +82,23 @@ def build_p_model(adj, dims):
         [p_v_μ_flat, p_v_logD_flat, p_v_u_flat])
     p_model = keras.models.Model(inputs=p_input, outputs=[p_adj, p_v_μlogDu_flat])
 
-    return p_input, p_model, (codecs.Bernoulli, codecs.Gaussian)
+    return ModelIO(p_input, p_model, (codecs.Bernoulli, codecs.Gaussian))
 
 
-def vae(adj, q_input, q_model, q_codec, n_ξ_samples, p_model, p_codecs):
+def build_vae_io(adj, q_io, p_io, n_ξ_samples, loss_weights):
     # Wire up the model
-    q = q_model(q_input)
-    ξ = layers.ParametrisedStochastic(q_codec, n_ξ_samples)(q)
-    model = keras.models.Model(inputs=q_input, outputs=[q] + p_model(ξ))
-
-    # Define the losses
-    def q_loss(_, pred):
-        return codecs.get(q_codec, pred).kl_to_normal()
-
-    p_adj_codec, p_v_codec = p_codecs
-
-    def estimated_p_adj_loss(adj_true, adj_pred):
-        return - K.mean(codecs.get(p_adj_codec, adj_pred).logprobability(adj_true), axis=1)
-
-    def estimated_p_v_loss(v_true, v_pred):
-        return - K.mean(codecs.get(p_v_codec, v_pred).logprobability(v_true), axis=1)
+    ξ_params = q_io.model(q_io.input)
+    ξ = layers.ParametrisedStochastic(q_io.codec, n_ξ_samples)(ξ_params)
+    model = keras.models.Model(inputs=q_io.input, outputs=[ξ_params, p_io.model(ξ)])
 
     # Compile the whole thing with losses
     model.compile('adam',  # CANDO: tune parameters
-                  loss=[q_loss, estimated_p_adj_loss, estimated_p_v_loss],
-                  loss_weights=[1.0, 1.0, 1.0],  # TODO: tune loss_weights
+                  loss=q_io.kl_to_normal_losses() + p_io.estimated_pred_losses(),
+                  loss_weights=loss_weights,
                   # TODO: metrics
                   )
-    return model
+
+    return ModelIO(q_io.input, model, (q_io.codec,) + p_io.codecs)
 
 
 # Note: encoders are further regularised (Rezende et al. 2014, p.10):
