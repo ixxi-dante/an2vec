@@ -10,6 +10,20 @@ import tensorflow as tf
 logger = logging.getLogger(__name__)
 
 
+def softmax(x, axes=[-1]):
+    if len(x.shape) == 0:
+        raise ValueError("Cannot perform softmax on 0D tensor")
+    e = tf.exp(x - tf.reduce_max(x, axis=axes, keep_dims=True))
+    s = tf.reduce_sum(e, axis=axes, keep_dims=True)
+    return e / s
+
+
+def Softmax(axes=[-1]):
+    def axes_softmax(x):
+        return softmax(x, axes=axes)
+    return axes_softmax
+
+
 # TOTEST
 def right_squeeze2(array):
     """TODOC"""
