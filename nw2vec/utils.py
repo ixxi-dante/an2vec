@@ -10,6 +10,17 @@ import tensorflow as tf
 logger = logging.getLogger(__name__)
 
 
+def scale_center(x, norm='l2'):
+    assert norm in ['l1', 'l2']
+    if norm == 'l1':
+        x_norm = x.sum(1, keepdims=True)
+    if norm == 'l2':
+        x_norm = np.sqrt((x ** 2).sum(1, keepdims=True))
+    x = x / x_norm
+    x -= x.mean(1, keepdims=True)
+    return x
+
+
 def softmax(x, axes=[-1]):
     if len(x.shape) == 0:
         raise ValueError("Cannot perform softmax on 0D tensor")
