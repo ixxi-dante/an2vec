@@ -66,7 +66,8 @@ def build_p_io(adj, dims):
     p_layer1 = keras.layers.Dense(dim_l1, use_bias=True, activation='relu',
                                   kernel_regularizer='l2', bias_regularizer='l2',
                                   name='p_layer1')(p_input)
-    p_adj = layers.Bilinear(0, adj.shape[0], use_bias=False, activation='softmax',
+    p_adj = layers.Bilinear(0, adj.shape[0], use_bias=False,
+                            activation='sigmoid',
                             kernel_regularizer='l2', bias_regularizer='l2',
                             name='p_adj')([p_layer1, p_layer1])
     p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=True,
