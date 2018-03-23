@@ -123,8 +123,8 @@ class Bilinear(keras.layers.Layer):
         assert len(bilin_axes) >= 1
 
         super(Bilinear, self).__init__(**kwargs)
-        self.batch_size = batch_size
         self.bilin_axes = bilin_axes
+        self.batch_size = batch_size
         self.activation = keras.activations.get(activation)
         self.use_bias = use_bias
         self.kernel_initializer = keras.initializers.get(kernel_initializer)
@@ -230,8 +230,8 @@ class Bilinear(keras.layers.Layer):
 
     def get_config(self):
         config = {
-            'batch_size': self.batch_size,
             'bilin_axes': self.bilin_axes,
+            'batch_size': self.batch_size,
             'activation': keras.activations.serialize(self.activation),
             'use_bias': self.use_bias,
             'kernel_initializer': keras.initializers.serialize(self.kernel_initializer),
