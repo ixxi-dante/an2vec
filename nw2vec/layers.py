@@ -24,6 +24,7 @@ class GC(keras.layers.Layer):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
 
+        # Validate arguments
         assert len(adj.shape) == 2 and adj.shape[0] == adj.shape[1]
 
         super(GC, self).__init__(**kwargs)
@@ -82,6 +83,7 @@ class GC(keras.layers.Layer):
         return tuple(output_shape)
 
     def get_config(self):
+        # FIXME: this will bail with numpy arrays
         config = {
             'units': self.units,
             'adj': self.adj,
@@ -95,7 +97,7 @@ class GC(keras.layers.Layer):
             'kernel_constraint': keras.constraints.serialize(self.kernel_constraint),
             'bias_constraint': keras.constraints.serialize(self.bias_constraint)
         }
-        base_config = super(keras.layers.Dense, self).get_config()
+        base_config = super(GC, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
 
@@ -104,6 +106,8 @@ class Bilinear(keras.layers.Layer):
     def __init__(self,
                  bilin_axis,
                  batch_size,
+                 fixed_kernel=None,
+                 fixed_bias=None,
                  activation=None,
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -117,9 +121,15 @@ class Bilinear(keras.layers.Layer):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
 
+        # Validate arguments
+        if fixed_bias is not None:
+            assert use_bias
+
         super(Bilinear, self).__init__(**kwargs)
         self.bilin_axis = bilin_axis
         self.batch_size = batch_size
+        self.fixed_kernel = fixed_kernel
+        self.fixed_bias = fixed_bias
         self.activation = keras.activations.get(activation)
         self.use_bias = use_bias
         self.kernel_initializer = keras.initializers.get(kernel_initializer)
@@ -165,17 +175,23 @@ class Bilinear(keras.layers.Layer):
     def build(self, input_shapes):
         bilin_axis, _, input_dim = self._process_input_shapes(input_shapes, check_concrete=False)
 
-        self.kernel = self.add_weight(shape=(input_dim, input_dim),
-                                      initializer=self.kernel_initializer,
-                                      name='kernel',
-                                      regularizer=self.kernel_regularizer,
-                                      constraint=self.kernel_constraint)
+        if self.fixed_kernel is not None:
+            self.kernel = K.constant(self.fixed_kernel)
+        else:
+            self.kernel = self.add_weight(shape=(input_dim, input_dim),
+                                          initializer=self.kernel_initializer,
+                                          name='kernel',
+                                          regularizer=self.kernel_regularizer,
+                                          constraint=self.kernel_constraint)
         if self.use_bias:
-            self.bias = self.add_weight(shape=(),
-                                        initializer=self.bias_initializer,
-                                        name='bias',
-                                        regularizer=self.bias_regularizer,
-                                        constraint=self.bias_constraint)
+            if self.fixed_bias is not None:
+                self.bias = K.constant(self.fixed_bias)
+            else:
+                self.bias = self.add_weight(shape=(),
+                                            initializer=self.bias_initializer,
+                                            name='bias',
+                                            regularizer=self.bias_regularizer,
+                                            constraint=self.bias_constraint)
         else:
             self.bias = None
 
@@ -202,7 +218,6 @@ class Bilinear(keras.layers.Layer):
         if self.use_bias:
             output = K.bias_add(output, self.bias)
         if self.activation is not None:
-            # TODO: activate on flattened output
             output = self.activation(output)
         return utils.expand_dims_tile(output, 0, self.batch_size)
 
@@ -217,9 +232,12 @@ class Bilinear(keras.layers.Layer):
                                            for ax in diag_axes + 2 * bilin_axes])
 
     def get_config(self):
+        # FIXME: this will bail with numpy arrays
         config = {
             'bilin_axis': self.bilin_axis,
             'batch_size': self.batch_size,
+            'fixed_kernel': self.fixed_kernel,
+            'fixed_bias': self.fixed_bias,
             'activation': keras.activations.serialize(self.activation),
             'use_bias': self.use_bias,
             'kernel_initializer': keras.initializers.serialize(self.kernel_initializer),
@@ -243,3 +261,5 @@ class ParametrisedStochastic(keras.layers.Lambda):
             return codecs.get(codec, params).stochastic_value(n_samples)
 
         super(ParametrisedStochastic, self).__init__(sampler, **kwargs)
+
+    # TODO: get_config
