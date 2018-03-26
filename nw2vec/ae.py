@@ -43,14 +43,14 @@ class ModelIO:
 
 
 def build_q_io(adj, dims):
-    dim_data, dim_l1, dim_z = dims
+    dim_data, dim_l1, dim_ξ = dims
 
     q_input = keras.layers.Input(shape=(dim_data,), name='q_input')
     # CANDO: change activation
     q_layer1 = layers.GC(dim_l1, adj, use_bias=True, activation='relu', name='q_layer1')(q_input)
-    q_μ_flat = layers.GC(dim_z, adj, use_bias=True, name='q_mu_flat')(q_layer1)
-    q_logD_flat = layers.GC(dim_z, adj, use_bias=True, name='q_logD_flat')(q_layer1)
-    q_u_flat = layers.GC(dim_z, adj, use_bias=True, name='q_u_flat')(q_layer1)
+    q_μ_flat = layers.GC(dim_ξ, adj, use_bias=True, name='q_mu_flat')(q_layer1)
+    q_logD_flat = layers.GC(dim_ξ, adj, use_bias=True, name='q_logD_flat')(q_layer1)
+    q_u_flat = layers.GC(dim_ξ, adj, use_bias=True, name='q_u_flat')(q_layer1)
     q_μlogDu_flat = keras.layers.Concatenate(name='q_mulogDu_flat')(
         [q_μ_flat, q_logD_flat, q_u_flat])
     q_model = keras.models.Model(inputs=q_input, outputs=q_μlogDu_flat)
@@ -59,9 +59,9 @@ def build_q_io(adj, dims):
 
 
 def build_p_io(adj, dims):
-    dim_data, dim_l1, dim_z = dims
+    dim_data, dim_l1, dim_ξ = dims
 
-    p_input = keras.layers.Input(shape=(dim_z,), name='p_input')
+    p_input = keras.layers.Input(shape=(dim_ξ,), name='p_input')
     # CANDO: change activation
     p_layer1 = keras.layers.Dense(dim_l1, use_bias=True, activation='relu',
                                   kernel_regularizer='l2', bias_regularizer='l2',
