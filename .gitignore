@@ -5,3 +5,6 @@ __pycache__/
 # Packaging left-overs
 /nw2vec.egg-info/
 /nw2vec/*.so
+
+# Keras/TensorBoard logs
+/logs
