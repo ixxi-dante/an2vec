@@ -87,6 +87,21 @@ class Gaussian(Codec):
                      - self.dim)
 
 
+class SigmoidBernoulli(Codec):
+
+    def __init__(self, logits):
+        """TODOC"""
+        self.logits = logits
+
+    # TOTEST
+    def logprobability(self, v):
+        """TODOC"""
+        # In lieu of assert v.shape == self.logits.shape
+        v.shape.assert_is_compatible_with(self.logits.shape)
+        return - K.sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=v, logits=self.logits),
+                       axis=-1)
+
+
 class Bernoulli(Codec):
 
     def __init__(self, probs):

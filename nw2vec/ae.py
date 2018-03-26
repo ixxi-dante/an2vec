@@ -67,7 +67,6 @@ def build_p_io(adj, dims):
                                   kernel_regularizer='l2', bias_regularizer='l2',
                                   name='p_layer1')(p_input)
     p_adj = layers.Bilinear(0, adj.shape[0], use_bias=False,
-                            activation='sigmoid',
                             kernel_regularizer='l2', bias_regularizer='l2',
                             name='p_adj')([p_layer1, p_layer1])
     p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=True,
@@ -83,7 +82,7 @@ def build_p_io(adj, dims):
         [p_v_μ_flat, p_v_logD_flat, p_v_u_flat])
     p_model = keras.models.Model(inputs=p_input, outputs=[p_adj, p_v_μlogDu_flat])
 
-    return ModelIO(p_input, p_model, (codecs.Bernoulli, codecs.Gaussian))
+    return ModelIO(p_input, p_model, (codecs.SigmoidBernoulli, codecs.Gaussian))
 
 
 def build_vae_io(adj, q_io, p_io, n_ξ_samples, loss_weights):
