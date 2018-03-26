@@ -187,7 +187,7 @@ class Bilinear(keras.layers.Layer):
             if self.fixed_bias is not None:
                 self.bias = K.constant(self.fixed_bias)
             else:
-                self.bias = self.add_weight(shape=(),
+                self.bias = self.add_weight(shape=(1,),
                                             initializer=self.bias_initializer,
                                             name='bias',
                                             regularizer=self.bias_regularizer,
