@@ -17,13 +17,10 @@ Next, using Anaconda, set up the environment with `conda env create -f environme
 
 ### GPU-enabled computations on `grunch`
 
-If you plan to use the LIP `grunch` machine with GPUs, then use `conda env create -f environment.lock-grunchpgu.yml` instead, and load the required environment modules before running any TensorFlow programs and scripts:
+If you plan to use the LIP `grunch` machine with GPUs, then:
 
-```bash
-module load CUDA/8.0.44-foss-2016a 
-module load cuDNN/5.1-foss-2016a-CUDA-8.0.44 
-module load GCC/5.4.0-2.26 
-```
+* use `conda env create -f environment.lock-grunchpgu.yml` instead of the above `conda` command,
+* run `./load_grunchgpu_modules.sh` to load the required environment modules before running any TensorFlow programs and scripts.
 
 ### Updating and managing the environment
 
