@@ -1,4 +1,4 @@
-name: base36
+name: base36-grunchgpu
 channels:
   - conda-forge
   - defaults
@@ -224,8 +224,8 @@ dependencies:
     - setuptools-rust==0.9.1
     - setuptools-scm==1.17.0
     - werkzeug==0.14.1
-    - "./wheelhouse/tensorflow-1.6.0-cp36-cp36m-linux_x86_64-grunchgpu.whl"
+    - "wheelhouse/tensorflow-1.6.0-cp36-cp36m-linux_x86_64-grunchgpu.whl"
     - "git+https://github.com/ixxi-dante/jwalk@fd8d2e83cf5726dfcba96b6ff6991e4cd974d594#egg=jwalk"
     - "--editable=."
-prefix: /home/sl/.conda/envs/base36
+prefix: /home/sl/.conda/envs/base36-grunchgpu
 
