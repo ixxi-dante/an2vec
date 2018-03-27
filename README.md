@@ -19,7 +19,7 @@ Next, using Anaconda, set up the environment with `conda env create -f environme
 
 If you plan to use the LIP `grunch` machine with GPUs, then:
 
-* use `conda env create -f environment.lock-grunchpgu.yml` instead of the above `conda` command,
+* use `conda env create -f environment.lock-grunchgpu.yml` instead of the above `conda` command,
 * run `./load_grunchgpu_modules.sh` to load the required environment modules before running any TensorFlow programs and scripts.
 
 ### Updating and managing the environment
@@ -28,7 +28,7 @@ If you plan to use the LIP `grunch` machine with GPUs, then:
 To upgrade packages in that environment, use `environment.yml` instead:
 it only includes the top-level required packages without versions, and conda will resolve to updated package versions.
 
-`environment.lock-grunchpgu.yml` is a copy of `environment.lock.yml` that uses a GPU-enabled version of TensorFlow 1.6, optimised for LIP's `grunch` machine; it will most probably only work on that machine.
+`environment.lock-grunchgpu.yml` is a copy of `environment.lock.yml` that uses a GPU-enabled version of TensorFlow 1.6, optimised for LIP's `grunch` machine; it will most probably only work on that machine.
 
 Finally, if you make changes to the Rust extensions (in `rust-utils`), make sure to run `pip install -e .` to recompile.
 
