@@ -8,3 +8,6 @@ __pycache__/
 
 # Keras/TensorBoard logs
 /logs
+
+# Rust extension build directory
+/build
