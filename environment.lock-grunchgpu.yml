@@ -1,4 +1,4 @@
-name: base36-grunchgpu
+name: base36
 channels:
   - conda-forge
   - defaults
