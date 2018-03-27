@@ -3,7 +3,6 @@ import functools
 import numpy as np
 
 import tensorflow as tf
-from tensorflow.contrib.bayesflow import stochastic_tensor as st
 from keras import backend as K
 
 from nw2vec.utils import right_squeeze2, expand_dims_tile
@@ -55,15 +54,8 @@ class Gaussian(Codec):
     # TOTEST
     def stochastic_value(self, n_samples):
         """TODOC"""
-
-        with st.value_type(st.SampleValue(n_samples)):
-            ε = st.StochasticTensor(
-                tf.distributions.Normal(loc=tf.zeros_like(self.μ), scale=tf.ones_like(self.μ))
-            ).value()
-
-        dims = list(range(len(ε.shape)))
-        ε = tf.transpose(ε, perm=dims[1:-2] + dims[:1] + dims[-2:])
-
+        μ_shape = self.μ.shape.as_list()
+        ε = tf.random_normal(μ_shape[:-2] + [n_samples] + μ_shape[-2:])
         return K.squeeze(expand_dims_tile(self.μ, -3, n_samples)
                          + expand_dims_tile(self.R, -3, n_samples) @ ε,
                          -1)
