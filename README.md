@@ -15,9 +15,20 @@ rustup override set nightly
 
 Next, using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 
+If you are planning on using the LIP `grunch` machine with GPUs, then use `conda env create -f environment.lock-grunchpgu.yml` instead.
+
 `environment.lock.yml` contains the full list of packages and their versions to duplicate the environment we use in development.
 To upgrade packages in that environment, use `environment.yml` instead:
 it only includes the top-level required packages without versions, and conda will resolve to updated package versions.
+
+`environment.lock-grunchpgu.yml` is a copy of `environment.lock.yml` that uses a GPU-enabled version of TensorFlow 1.6, optimised for LIP's `grunch` machine; it will most probably only work on that machine.
+Using this requires that you load a few modules before running TensorFlow programs and scripts:
+
+```bash
+module load CUDA/8.0.44-foss-2016a 
+module load cuDNN/5.1-foss-2016a-CUDA-8.0.44 
+module load GCC/5.4.0-2.26 
+```
 
 Finally, if you make changes to the Rust extensions (in `rust-utils`), make sure to run `pip install -e .` to recompile.
 
