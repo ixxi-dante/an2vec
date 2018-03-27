@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Sébastien Lerique <sl@mehho.net>"]
 
 [lib]
+name = "_rust_utils"
 crate-type = ["cdylib"]
 
 [dependencies]
