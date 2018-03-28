@@ -64,12 +64,12 @@ dependencies:
   - jupyter=1.0.0=py_1
   - jupyter_client=5.2.3=py36_0
   - jupyter_console=5.2.0=py36_0
-  - jupyter_contrib_core=0.3.3=py36_1
-  - jupyter_contrib_nbextensions=0.4.0=py36_0
+  #- jupyter_contrib_core=0.3.3=py36_1
+  #- jupyter_contrib_nbextensions=0.4.0=py36_0
   - jupyter_core=4.4.0=py_0
-  - jupyter_highlight_selected_word=0.1.1=py36_0
-  - jupyter_latex_envs=1.4.4=py36_0
-  - jupyter_nbextensions_configurator=0.4.0=py36_0
+  #- jupyter_highlight_selected_word=0.1.1=py36_0
+  #- jupyter_latex_envs=1.4.4=py36_0
+  #- jupyter_nbextensions_configurator=0.4.0=py36_0
   - keras=2.1.5=py36_0
   - kiwisolver=1.0.1=py36_1
   - krb5=1.14.2=0
