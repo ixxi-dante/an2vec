@@ -20,7 +20,7 @@ Next, using Anaconda, set up the environment with `conda env create -f environme
 If you plan to use the LIP `grunch` machine with GPUs, then:
 
 * use `conda env create -f environment.lock-grunchgpu.yml` instead of the above `conda` command,
-* run `./load_grunchgpu_modules.sh` to load the required environment modules before running any TensorFlow programs and scripts.
+* run `./load-grunchgpu-modules` to load the required environment modules before running any TensorFlow programs and scripts.
 
 ### Updating and managing the environment
 
