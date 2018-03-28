@@ -16,8 +16,8 @@ dependencies:
 - ipywidgets
 - joblib
 - jupyter
-- jupyter_contrib_nbextensions
-- jupyter_nbextensions_configurator
+#- jupyter_contrib_nbextensions
+#- jupyter_nbextensions_configurator
 - keras
 - matplotlib
 - nbconvert
@@ -37,7 +37,7 @@ dependencies:
 - spacy
 - statsmodels
 - ujson
-- widgetsnbextension
+#- widgetsnbextension
 - pip:
   - jupyterlab
   - jupyterlab-discovery
