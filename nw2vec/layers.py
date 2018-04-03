@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 import keras
 from keras import backend as K
@@ -83,7 +84,6 @@ class GC(keras.layers.Layer):
         return tuple(output_shape)
 
     def get_config(self):
-        # FIXME: this will bail with numpy arrays
         config = {
             'units': self.units,
             'adj': self.adj,
@@ -99,6 +99,17 @@ class GC(keras.layers.Layer):
         }
         base_config = super(GC, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+    @classmethod
+    def from_config(cls, config, custom_objects=None):
+        # Recover any numpy array arguments
+        config = config.copy()
+        for key in config:
+            if isinstance(config[key], dict):
+                if 'type' in config[key] and config[key]['type'] == 'ndarray':
+                    config[key] = np.array(config[key]['value'])
+
+        return cls(**config)
 
 
 class Bilinear(keras.layers.Layer):
@@ -192,6 +203,11 @@ class Bilinear(keras.layers.Layer):
                                             name='bias',
                                             regularizer=self.bias_regularizer,
                                             constraint=self.bias_constraint)
+            # K.bias_add (in self.call()) requires something that has shape dim(output) - 1.
+            # In this case we want the same bias added to all bilinear combinations, so we
+            # tile our scalar into a vector, which gets added to all columns of the bilinear
+            # matrix output
+            self.bias = K.tile(self.bias, [self.batch_size])
         else:
             self.bias = None
 
@@ -232,7 +248,6 @@ class Bilinear(keras.layers.Layer):
                                            for ax in diag_axes + 2 * bilin_axes])
 
     def get_config(self):
-        # FIXME: this will bail with numpy arrays
         config = {
             'bilin_axis': self.bilin_axis,
             'batch_size': self.batch_size,
@@ -250,6 +265,17 @@ class Bilinear(keras.layers.Layer):
         }
         base_config = super(Bilinear, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+    @classmethod
+    def from_config(cls, config, custom_objects=None):
+        # Recover any numpy array arguments
+        config = config.copy()
+        for key in config:
+            if isinstance(config[key], dict):
+                if 'type' in config[key] and config[key]['type'] == 'ndarray':
+                    config[key] = np.array(config[key]['value'])
+
+        return cls(**config)
 
 
 class ParametrisedStochastic(keras.layers.Lambda):
