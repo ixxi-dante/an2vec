@@ -1,5 +1,4 @@
 import keras
-from keras import backend as K
 
 from nw2vec import layers
 from nw2vec import codecs
@@ -58,12 +57,16 @@ def build_vae(adj, q_model_codecs, p_model_codecs, n_ξ_samples, loss_weights):
 
     # Wire up the model
     ξ = layers.ParametrisedStochastic(q_codec, n_ξ_samples)(q.output)
-    model = keras.models.Model(inputs=q.input, outputs=[q.output] + p(ξ))
+    p_ξ = p(ξ)
+    if not isinstance(p_ξ, list):
+        p_ξ = [p_ξ]
+    model = keras.models.Model(inputs=q.input, outputs=[q.output] + p_ξ)
 
     # Compile the whole thing with losses
     model.compile('adam',  # CANDO: tune parameters
                   loss=([codecs.get_loss(q_codec, 'kl_to_normal_loss')]
-                        + [codecs.get_loss(p_codec, 'estimated_pred_loss') for p_codec in p_codecs]),
+                        + [codecs.get_loss(p_codec, 'estimated_pred_loss')
+                           for p_codec in p_codecs]),
                   loss_weights=loss_weights,
                   # TODO: metrics
                   )
