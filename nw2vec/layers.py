@@ -280,12 +280,31 @@ class Bilinear(keras.layers.Layer):
 
 class ParametrisedStochastic(keras.layers.Lambda):
 
-    def __init__(self, codec, n_samples, **kwargs):
-        self.codec = codec
+    def __init__(self, codec_name, n_samples, **kwargs):
+        self.codec_name = codec_name
+        self.n_samples = n_samples
 
         def sampler(params):
-            return codecs.get(codec, params).stochastic_value(n_samples)
+            return codecs.get(codec_name, params).stochastic_value(n_samples)
 
         super(ParametrisedStochastic, self).__init__(sampler, **kwargs)
 
-    # TODO: get_config
+    def get_config(self):
+        config = {
+            'codec_name': self.codec_name,
+            'n_samples': self.n_samples
+        }
+        # Skip the Lambda-specific config parameters as we recreate the Lambda layer ourselves
+        base_config = super(keras.layers.Lambda, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    @classmethod
+    def from_config(cls, config, custom_objects=None):
+        # Recover any numpy array arguments
+        config = config.copy()
+        for key in config:
+            if isinstance(config[key], dict):
+                if 'type' in config[key] and config[key]['type'] == 'ndarray':
+                    config[key] = np.array(config[key]['value'])
+
+        return cls(**config)
