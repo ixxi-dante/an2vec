@@ -109,5 +109,11 @@ class Bernoulli(Codec):
 
 
 @functools.lru_cache(typed=True)
-def get(klass, *args, **kwargs):
-    return klass(*args, **kwargs)
+def get(class_name, *args, **kwargs):
+    codec_classes = {klass.__name__: klass for klass in Codec.__subclasses__()}
+    assert class_name in codec_classes
+    return codec_classes[class_name](*args, **kwargs)
+
+
+def available_names():
+    return [klass.__name__ for klass in Codec.__subclasses__()]
