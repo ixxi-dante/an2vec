@@ -10,29 +10,47 @@ from nw2vec.utils import right_squeeze2, expand_dims_tile
 
 class Codec:
 
+    __losses__ = ['estimated_pred_loss', 'kl_to_normal_loss']
+
+    def __init__(self, params):
+        self.params = params
+
     def stochastic_value(self, n_samples):
         raise NotImplementedError
 
     def logprobability(self, v):
         raise NotImplementedError
 
+    def kl_to_normal(self):
+        raise NotImplementedError
+
+    def estimated_pred_loss(self, y_true, y_pred):
+        assert y_pred == self.params
+        return - K.mean(self.logprobability(y_true), axis=1)
+
+    def kl_to_normal_loss(self, y_true, y_pred):
+        assert y_pred == self.params
+        return self.kl_to_normal()
+
 
 class Gaussian(Codec):
 
     """TODOC"""
 
-    def __init__(self, μlogDu_flat):
+    def __init__(self, params):
         """TODOC"""
 
+        super(Gaussian, self).__init__(params)
+
         # Check the flattened parameters have the right shape
-        concat_dim = int(μlogDu_flat.shape[-1])
+        concat_dim = int(params.shape[-1])
         assert concat_dim % 3 == 0
         # Extract the separate parameters
         self.dim = concat_dim // 3
-        outer_slices = [slice(None)] * (len(μlogDu_flat.shape) - 1)
-        μ_flat = μlogDu_flat[outer_slices + [slice(self.dim)]]
-        logD_flat = μlogDu_flat[outer_slices + [slice(self.dim, 2 * self.dim)]]
-        u_flat = μlogDu_flat[outer_slices + [slice(2 * self.dim, None)]]
+        outer_slices = [slice(None)] * (len(params.shape) - 1)
+        μ_flat = params[outer_slices + [slice(self.dim)]]
+        logD_flat = params[outer_slices + [slice(self.dim, 2 * self.dim)]]
+        u_flat = params[outer_slices + [slice(2 * self.dim, None)]]
 
         # Prepare the D matrix
         D = tf.matrix_diag(K.exp(logD_flat))
@@ -81,9 +99,10 @@ class Gaussian(Codec):
 
 class SigmoidBernoulli(Codec):
 
-    def __init__(self, logits):
+    def __init__(self, params):
         """TODOC"""
-        self.logits = logits
+        super(SigmoidBernoulli, self).__init__(params)
+        self.logits = params
 
     # TOTEST
     def logprobability(self, v):
@@ -96,9 +115,10 @@ class SigmoidBernoulli(Codec):
 
 class Bernoulli(Codec):
 
-    def __init__(self, probs):
+    def __init__(self, params):
         """TODOC"""
-        self.probs = probs
+        super(Bernoulli, self).__init__(params)
+        self.probs = params
 
     # TOTEST
     def logprobability(self, v):
@@ -109,11 +129,43 @@ class Bernoulli(Codec):
 
 
 @functools.lru_cache(typed=True)
-def get(class_name, *args, **kwargs):
-    codec_classes = {klass.__name__: klass for klass in Codec.__subclasses__()}
-    assert class_name in codec_classes
-    return codec_classes[class_name](*args, **kwargs)
+def get(codec_name, *args, **kwargs):
+    codecs = available_codecs()
+    assert codec_name in codecs
+    return codecs[codec_name](*args, **kwargs)
 
 
-def available_names():
-    return [klass.__name__ for klass in Codec.__subclasses__()]
+def available_codecs():
+    return {klass.__name__: klass for klass in Codec.__subclasses__()}
+
+
+def get_loss(codec_name, loss_name):
+    assert loss_name in Codec.__losses__
+    assert codec_name in available_codecs().keys()
+
+    def loss(y_true, y_pred):
+        return getattr(get(codec_name, y_pred), loss_name)(y_true, y_pred)
+
+    loss.__name__ = loss_fullname(codec_name, loss_name)
+    return loss
+
+
+def get_loss_by_fullname(loss_fullname):
+    codec_name, loss_name = destructure_loss_fullname(loss_fullname)
+    return get_loss(codec_name, loss_name)
+
+
+def loss_fullname(codec_name, loss_name):
+    return codec_name + '__' + loss_name
+
+
+def destructure_loss_fullname(loss_fullname):
+    codec_name, loss_name = loss_fullname.split('__')
+    return codec_name, loss_name
+
+
+def available_fullname_losses():
+    codecs = available_codecs()
+    return {loss_fullname(codec_name, loss_name): get_loss(codec_name, loss_name)
+            for codec_name in codecs.keys()
+            for loss_name in Codec.__losses__}
