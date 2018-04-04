@@ -69,7 +69,7 @@ class GC(keras.layers.Layer):
         super(GC, self).build(input_shape)
 
     def call(self, inputs):
-        output = self.A_hat @ inputs @ self.kernel
+        output = tf.matmul(self.A_hat, inputs @ self.kernel, a_is_sparse=True)
         if self.use_bias:
             output = K.bias_add(output, self.bias)
         if self.activation is not None:
