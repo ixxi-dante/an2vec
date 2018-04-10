@@ -152,7 +152,7 @@ class Bilinear(keras.layers.Layer):
         self.bias_constraint = keras.constraints.get(bias_constraint)
         self.input_spec = [keras.engine.InputSpec(min_ndim=2, max_ndim=3,
                                                   axes={bilin_axis: self.batch_size})] * 2
-        self.supports_masking = True
+        self.supports_masking = False
 
     def _process_input_shapes(self, input_shapes, check_concrete=True):
         if not isinstance(input_shapes, list) or len(input_shapes) != 2:
@@ -235,7 +235,7 @@ class Bilinear(keras.layers.Layer):
             output = K.bias_add(output, self.bias)
         if self.activation is not None:
             output = self.activation(output)
-        return utils.expand_dims_tile(output, 0, self.batch_size)
+        return output
 
     def compute_output_shape(self, input_shapes):
         bilin_axis, diag_axis, _ = self._process_input_shapes(input_shapes, check_concrete=False)
@@ -244,8 +244,8 @@ class Bilinear(keras.layers.Layer):
         # diag_axis can be None either because there is none (i.e. len(shape) == 2) or
         # because we don't know its dimension (i.e. shape[diag_axis] is None)
         diag_axes = [] if len(shape) == 2 else [diag_axis]
-        return (self.batch_size,) + tuple([input_shapes[0][ax] if ax is not None else None
-                                           for ax in diag_axes + 2 * bilin_axes])
+        return tuple([input_shapes[0][ax] if ax is not None else None
+                      for ax in diag_axes + 2 * bilin_axes])
 
     def get_config(self):
         config = {
