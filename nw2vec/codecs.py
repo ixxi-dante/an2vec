@@ -74,8 +74,8 @@ class Gaussian(Codec):
     # TOTEST
     def stochastic_value(self, n_samples):
         """TODOC"""
-        μ_shape = self.μ.shape.as_list()
-        ε = tf.random_normal(μ_shape[:-2] + [n_samples] + μ_shape[-2:])
+        μ_shape = tf.shape(self.μ)
+        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0))
         return K.squeeze(expand_dims_tile(self.μ, -3, n_samples)
                          + expand_dims_tile(self.R, -3, n_samples) @ ε,
                          -1)
@@ -86,7 +86,7 @@ class Gaussian(Codec):
         # Turn `v` into a column vector
         v = K.expand_dims(v, -1)
         # Check shapes and broadcast
-        v = broadcast_left(v, self.μ.shape)
+        v = broadcast_left(v, self.μ)
         return - .5 * (self.dim * np.log(2 * np.pi) + self.logdetC
                        + right_squeeze2(tf.matrix_transpose(v - self.μ)
                                         @ self.C_inv
@@ -111,7 +111,7 @@ class SigmoidBernoulli(Codec):
     def logprobability(self, v):
         """TODOC"""
         # Check shapes and broadcast
-        v = broadcast_left(v, self.logits.shape)
+        v = broadcast_left(v, self.logits)
         return - K.sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=v, logits=self.logits),
                        axis=-1)
 
@@ -127,7 +127,7 @@ class Bernoulli(Codec):
     def logprobability(self, v):
         """TODOC"""
         # Check shapes and broadcast
-        v = broadcast_left(v, self.logits.shape)
+        v = broadcast_left(v, self.logits)
         return K.sum(v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs), axis=-1)
 
 
