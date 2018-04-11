@@ -48,7 +48,7 @@ def build_p(adj, dims):
     return p_model, ('SigmoidBernoulli', 'Gaussian')
 
 
-def build_vae(q_model_codecs, p_model_codecs, n_ξ_samples, loss_weights):
+def build_vae(q_model_codecs, p_model_codecs, n_ξ_samples, loss_weights, **kwargs):
     q, q_codecs = q_model_codecs
     assert len(q_codecs) == 1
     q_codec = q_codecs[0]
@@ -68,6 +68,7 @@ def build_vae(q_model_codecs, p_model_codecs, n_ξ_samples, loss_weights):
                         + [codecs.get_loss(p_codec, 'estimated_pred_loss')
                            for p_codec in p_codecs]),
                   loss_weights=loss_weights,
+                  **kwargs,
                   # TODO: metrics
                   )
 
