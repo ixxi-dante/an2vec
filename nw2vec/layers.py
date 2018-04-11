@@ -11,7 +11,6 @@ class GC(keras.layers.Layer):
     def __init__(self,
                  units,
                  activation=None,
-                 use_gather=False,
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
                  bias_initializer='zeros',
@@ -24,7 +23,6 @@ class GC(keras.layers.Layer):
         super(GC, self).__init__(**kwargs)
         self.units = units
         self.activation = keras.activations.get(activation)
-        self.use_gather = use_gather
         self.use_bias = use_bias
         self.kernel_initializer = keras.initializers.get(kernel_initializer)
         self.bias_initializer = keras.initializers.get(bias_initializer)
@@ -34,21 +32,16 @@ class GC(keras.layers.Layer):
         self.kernel_constraint = keras.constraints.get(kernel_constraint)
         self.bias_constraint = keras.constraints.get(bias_constraint)
         self.input_spec = [keras.engine.InputSpec(ndim=2),
-                           keras.engine.InputSpec(ndim=2, axes={1: 1}),
+                           keras.engine.InputSpec(ndim=1),
                            keras.engine.InputSpec(ndim=2)]
-        self.supports_masking = True
+        self.supports_masking = False
 
     def build(self, input_shapes):
         adj_shape, gather_shape, features_shape = input_shapes
 
         assert len(adj_shape) == 2
-        assert len(gather_shape) == 2
+        assert len(gather_shape) == 1
         assert len(features_shape) == 2
-
-        assert adj_shape[0] == adj_shape[1]
-        assert adj_shape[0] >= gather_shape[0]
-        assert gather_shape[1] == 1
-        assert features_shape[0] == adj_shape[0]
 
         n_nodes = adj_shape[0]
         features_dim = features_shape[1]
@@ -78,8 +71,7 @@ class GC(keras.layers.Layer):
         A_hat = D_tilde_inv_sqrt @ A_tilde @ D_tilde_inv_sqrt
 
         output = tf.matmul(A_hat, features @ self.kernel, a_is_sparse=True)
-        if self.use_gather:
-            output = tf.gather(output, K.squeeze(gather, 1), axis=0)
+        output = tf.gather(output, gather, axis=0)
         if self.use_bias:
             output = K.bias_add(output, self.bias)
         if self.activation is not None:
@@ -89,17 +81,15 @@ class GC(keras.layers.Layer):
     def compute_output_shape(self, input_shapes):
         adj_shape, gather_shape, features_shape = input_shapes
         assert len(adj_shape) == 2
-        assert len(gather_shape) == 2
+        assert len(gather_shape) == 1
         assert len(features_shape) == 2
 
-        return (gather_shape[0] if self.use_gather else features_shape[0],
-                self.units)
+        return (gather_shape[0], self.units)
 
     def get_config(self):
         config = {
             'units': self.units,
             'activation': keras.activations.serialize(self.activation),
-            'use_gather': self.use_gather,
             'use_bias': self.use_bias,
             'kernel_initializer': keras.initializers.serialize(self.kernel_initializer),
             'bias_initializer': keras.initializers.serialize(self.bias_initializer),
