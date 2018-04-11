@@ -1,6 +1,6 @@
 import tempfile
 import logging
-from itertools import zip_longest
+import itertools
 
 from keras import backend as K
 import jwalk
@@ -11,11 +11,15 @@ import tensorflow as tf
 logger = logging.getLogger(__name__)
 
 
+def inner_repeat(it, n):
+    return itertools.chain(*zip(*itertools.tee(it, n)))
+
+
 def grouper(iterable, n, fillvalue=None):
     """Collect data into fixed-length chunks or blocks"""
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * n
-    return zip_longest(*args, fillvalue=fillvalue)
+    return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 
 def scale_center(x, norm='l2'):
