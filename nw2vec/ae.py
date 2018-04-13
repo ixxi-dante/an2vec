@@ -88,24 +88,24 @@ def build_q(dims, use_bias=False):
     return q_model, ('Gaussian',)
 
 
-def build_p(dims, feed_dict):
+def build_p(dims, use_bias=False):
     dim_data, dim_l1, dim_ξ = dims
 
     p_input = keras.layers.Input(shape=(dim_ξ,), name='p_input')
     # CANDO: change activation
-    p_layer1 = keras.layers.Dense(dim_l1, use_bias=True, activation='relu',
+    p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
                                   kernel_regularizer='l2', bias_regularizer='l2',
                                   name='p_layer1')(p_input)
-    p_adj = layers.Bilinear(0, adj.shape[0], use_bias=False,
+    p_adj = layers.Bilinear(0, use_bias=use_bias,
                             kernel_regularizer='l2', bias_regularizer='l2',
                             name='p_adj')([p_layer1, p_layer1])
-    p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=True,
+    p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
                                     kernel_regularizer='l2', bias_regularizer='l2',
                                     name='p_v_mu_flat')(p_layer1)
-    p_v_logD_flat = keras.layers.Dense(dim_data, use_bias=True,
+    p_v_logD_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
                                        kernel_regularizer='l2', bias_regularizer='l2',
                                        name='p_v_logD_flat')(p_layer1)
-    p_v_u_flat = keras.layers.Dense(dim_data, use_bias=True,
+    p_v_u_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
                                     kernel_regularizer='l2', bias_regularizer='l2',
                                     name='p_v_u_flat')(p_layer1)
     p_v_μlogDu_flat = keras.layers.Concatenate(name='p_v_mulogDu_flat')(
