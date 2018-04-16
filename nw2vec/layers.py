@@ -37,10 +37,10 @@ class GC(keras.layers.Layer):
         self.supports_masking = False
 
     def build(self, input_shapes):
-        adj_shape, gather_shape, features_shape = input_shapes
+        adj_shape, mask_shape, features_shape = input_shapes
 
         assert len(adj_shape) == 2
-        assert len(gather_shape) == 1
+        assert len(mask_shape) == 1
         assert len(features_shape) == 2
 
         n_nodes = adj_shape[0]
@@ -59,32 +59,33 @@ class GC(keras.layers.Layer):
                                         constraint=self.bias_constraint)
         else:
             self.bias = None
-        self.input_spec[0] = keras.engine.InputSpec(ndim=2, axes={0: n_nodes, 1: n_nodes})
-        self.input_spec[2] = keras.engine.InputSpec(ndim=2, axes={0: n_nodes, 1: features_dim})
+        self.input_spec = [keras.engine.InputSpec(ndim=2, axes={0: n_nodes, 1: n_nodes}),
+                           keras.engine.InputSpec(ndim=1, axes={0: n_nodes}),
+                           keras.engine.InputSpec(ndim=2, axes={0: n_nodes, 1: features_dim})]
         super(GC, self).build(input_shapes)
 
     def call(self, inputs):
-        adj, gather, features = inputs
+        adj, mask, features = inputs
 
         A_tilde = adj + tf.eye(tf.shape(adj)[0])
         D_tilde_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=1)))
         A_hat = D_tilde_inv_sqrt @ A_tilde @ D_tilde_inv_sqrt
 
         output = tf.matmul(A_hat, features @ self.kernel, a_is_sparse=True)
-        output = tf.gather(output, gather, axis=0)
         if self.use_bias:
             output = K.bias_add(output, self.bias)
         if self.activation is not None:
             output = self.activation(output)
+        output = output * mask
         return output
 
     def compute_output_shape(self, input_shapes):
-        adj_shape, gather_shape, features_shape = input_shapes
+        adj_shape, mask_shape, features_shape = input_shapes
         assert len(adj_shape) == 2
-        assert len(gather_shape) == 1
+        assert len(mask_shape) == 1
         assert len(features_shape) == 2
 
-        return (gather_shape[0], self.units)
+        return (adj_shape[0], self.units)
 
     def get_config(self):
         config = {
