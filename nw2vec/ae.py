@@ -56,11 +56,11 @@ def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
     adj = keras.layers.Input(tensor=tf.placeholder(tf.float32, shape=(None, None),
                                                    name=name + '_adj'),
                              name=name + '_adj')
-    gather = keras.layers.Input(tensor=tf.placeholder(tf.int32, shape=(None,),
-                                                      name=name + '_gather'),
-                                name=name + '_gather')
-    gc = layers.GC(dim, name=name, **gc_kwargs)([adj, gather, inlayer])
-    return [adj, gather], gc
+    mask = keras.layers.Input(tensor=tf.placeholder(tf.float32, shape=(None,),
+                                                   name=name + '_output_mask'),
+                              name=name + '_output_mask')
+    gc = layers.GC(dim, name=name, **gc_kwargs)([adj, mask, inlayer])
+    return [adj, mask], gc
 
 
 def build_q(dims, use_bias=False):
