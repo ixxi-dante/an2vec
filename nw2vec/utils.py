@@ -48,6 +48,40 @@ def Softmax(axes=[-1]):
 
 
 # TOTEST
+def broadcast_left(array, target_shape):
+    """TODOC"""
+
+    with tf.name_scope('broadcast') as scope:
+        array = tf.convert_to_tensor(array)
+        if not isinstance(target_shape, tf.Tensor):
+            orig_target_shape = target_shape
+            target_shape = tf.convert_to_tensor(target_shape)
+        else:
+            orig_target_shape = None
+        array_shape = tf.shape(array)
+        array_rank = tf.rank(array)
+        target_rank = tf.shape(target_shape)[0]
+
+        with tf.control_dependencies(
+                [tf.assert_less_equal(array_rank, target_rank),
+                 tf.assert_equal(array_shape, target_shape[- array_rank:])]):
+            # Actually reshape and broadcast
+            degen_shape = tf.concat([tf.ones(target_rank - array_rank, dtype=tf.int32), array_shape], 0)
+            multiples = tf.concat([target_shape[:- array_rank], tf.ones(array_rank, dtype=tf.int32)], 0)
+            out = tf.tile(tf.reshape(array, degen_shape), multiples, name=scope)
+
+            # Inform the static shape if possible
+            if orig_target_shape is not None:
+                out.set_shape(orig_target_shape)
+
+            return out
+
+
+def get_backend(array):
+    return K if isinstance(array, tf.Tensor) else np
+
+
+# TOTEST
 def right_squeeze2(array):
     """TODOC"""
     return K.squeeze(K.squeeze(array, -1), -1)
@@ -62,10 +96,7 @@ def expand_dims_tile(array, dim_position, multiple):
     # the new shape list*, not in the old. So it's important we expand
     # the dimensions before indexing into the list of multiples with
     # `dim_position`.
-    if isinstance(array, tf.Tensor):
-        backend = K
-    else:
-        backend = np
+    backend = get_backend(array)
     array = backend.expand_dims(array, dim_position)
     multiples = np.ones(len(array.shape), dtype=np.int32)
     multiples[dim_position] = multiple
