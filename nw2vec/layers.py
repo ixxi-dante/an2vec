@@ -77,7 +77,7 @@ class GC(keras.layers.Layer):
             output = K.bias_add(output, self.bias)
         if self.activation is not None:
             output = self.activation(output)
-        output = output * mask
+        output = output * K.expand_dims(mask, -1)
         return output
 
     def compute_output_shape(self, input_shapes):
