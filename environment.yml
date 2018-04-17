@@ -37,6 +37,8 @@ dependencies:
 - statsmodels
 - ujson
 - pip:
+  - tqdm
+  - keras-tqdm
   - jupyterlab
   - jupyterlab-discovery
   - jupyterlab-geojson
