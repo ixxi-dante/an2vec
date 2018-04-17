@@ -12,6 +12,7 @@ class GC(keras.layers.Layer):
                  units,
                  activation=None,
                  use_bias=True,
+                 gather_mask=False,
                  kernel_initializer='glorot_uniform',
                  bias_initializer='zeros',
                  kernel_regularizer=None,
@@ -24,6 +25,7 @@ class GC(keras.layers.Layer):
         self.units = units
         self.activation = keras.activations.get(activation)
         self.use_bias = use_bias
+        self.gather_mask = gather_mask
         self.kernel_initializer = keras.initializers.get(kernel_initializer)
         self.bias_initializer = keras.initializers.get(bias_initializer)
         self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
@@ -77,7 +79,10 @@ class GC(keras.layers.Layer):
             output = K.bias_add(output, self.bias)
         if self.activation is not None:
             output = self.activation(output)
-        output = output * K.expand_dims(mask, -1)
+        if self.gather_mask:
+            output = tf.boolean_mask(output, mask)
+        else:
+            output = output * K.expand_dims(mask, -1)
         return output
 
     def compute_output_shape(self, input_shapes):
@@ -93,6 +98,7 @@ class GC(keras.layers.Layer):
             'units': self.units,
             'activation': keras.activations.serialize(self.activation),
             'use_bias': self.use_bias,
+            'gather_mask': self.gather_mask,
             'kernel_initializer': keras.initializers.serialize(self.kernel_initializer),
             'bias_initializer': keras.initializers.serialize(self.bias_initializer),
             'kernel_regularizer': keras.regularizers.serialize(self.kernel_regularizer),
