@@ -63,31 +63,34 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
         # the layer (i.e. neigbours of `out_nodes`, and `out_nodes` themselves)
         csr_adj = _layer_csr_adj(out_nodes, adj, neighbour_samples=neighbour_samples)
         layers_crops[layer.name] = {'csr_adj': csr_adj,
+                                    'out_nodes': out_nodes,
                                     'in_nodes': set().union(out_nodes, csr_adj[1])}
 
     # Get the sorted list of nodes required by the whole network for this batch
-    initial_nodes = set().union(*[crop['in_nodes'] for crop in layers_crops.values()])
-    initial_nodes = np.array(sorted(initial_nodes))
+    required_nodes = set().union(*[crop['in_nodes'] for crop in layers_crops.values()])
+    required_nodes = np.array(sorted(required_nodes))
     # Reduce the global adjacency matrix to only those nodes
-    subadj = adj[initial_nodes, :][:, initial_nodes]
-    # Pre-compute conversion of node ids in `adj` to ids in `subadj`
-    global_to_sub = {node: i for i, node in enumerate(initial_nodes)}
+    reqadj = adj[required_nodes, :][:, required_nodes]
+    # Pre-compute conversion of node ids in `adj` to ids in `reqadj`
+    global_to_sub = {node: i for i, node in enumerate(required_nodes)}
 
-    # Create the subadjs to be fed to each layer
+    # Create the reqadjs to be fed to each layer
     feeds = {}
     for name, crop in layers_crops.items():
-        out_nodes_subadj = [global_to_sub[out_node] for out_node in crop['csr_adj'][0]]
-        in_nodes_subadj = [global_to_sub[in_node] for in_node in crop['csr_adj'][1]]
-        layer_subadj_mask = np.array(scipy.sparse.csr_matrix((np.ones(len(out_nodes_subadj)),
-                                                              (out_nodes_subadj, in_nodes_subadj)),
-                                                             shape=subadj.shape).todense())
-        feeds[name + '_adj'] = subadj * layer_subadj_mask
-        feeds[name + '_output_mask'] = mask_indices(set(out_nodes_subadj), subadj.shape[0])
+        row_ind_reqadj = [global_to_sub[row] for row in crop['csr_adj'][0]]
+        col_ind_reqadj = [global_to_sub[col] for col in crop['csr_adj'][1]]
+        layer_reqadj_mask = np.array(scipy.sparse.csr_matrix((np.ones(len(row_ind_reqadj)),
+                                                              (row_ind_reqadj, col_ind_reqadj)),
+                                                             shape=reqadj.shape).todense())
+        feeds[name + '_adj'] = reqadj * layer_reqadj_mask
 
-    return initial_nodes, feeds
+        out_nodes_reqadj = set([global_to_sub[out_node] for out_node in crop['out_nodes']])
+        feeds[name + '_output_mask'] = mask_indices(out_nodes_reqadj, reqadj.shape[0])
+
+    return required_nodes, feeds
 
 
-def batches(model, features, adj, final_batch_size, neighbour_samples=None):
+def batches(model, adj, final_batch_size, neighbour_samples=None):
     # Check the adjacency matrix is:
     # - an ndarray
     # - undirected
@@ -95,7 +98,6 @@ def batches(model, features, adj, final_batch_size, neighbour_samples=None):
     # - with no diagonal elements
     assert isinstance(adj, np.ndarray)
     n_nodes = adj.shape[0]
-    assert len(features) == n_nodes
     assert (adj.T == adj).all()
     assert ((adj == 0) | (adj == 1)).all()
     assert np.trace(adj) == 0
@@ -115,6 +117,6 @@ def batches(model, features, adj, final_batch_size, neighbour_samples=None):
             # No `None`s in `final_nodes`
             pass
 
-        initial_nodes, feeds = _compute_batch(model, adj, final_nodes,
-                                              neighbour_samples=neighbour_samples)
-        yield features[initial_nodes], feeds
+        required_nodes, feeds = _compute_batch(model, adj, final_nodes,
+                                               neighbour_samples=neighbour_samples)
+        yield required_nodes, np.array(sorted(final_nodes)), feeds
