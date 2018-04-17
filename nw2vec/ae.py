@@ -71,11 +71,11 @@ def build_q(dims, use_bias=False):
     q_layer1_placeholders, q_layer1 = gc_layer_with_placeholders(
         dim_l1, 'q_layer1', {'use_bias': use_bias, 'activation': 'relu'}, q_input)
     q_μ_flat_placeholders, q_μ_flat = gc_layer_with_placeholders(
-        dim_ξ, 'q_mu_flat', {'use_bias': use_bias}, q_layer1)
+        dim_ξ, 'q_mu_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
     q_logD_flat_placeholders, q_logD_flat = gc_layer_with_placeholders(
-        dim_ξ, 'q_logD_flat', {'use_bias': use_bias}, q_layer1)
+        dim_ξ, 'q_logD_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
     q_u_flat_placeholders, q_u_flat = gc_layer_with_placeholders(
-        dim_ξ, 'q_u_flat', {'use_bias': use_bias}, q_layer1)
+        dim_ξ, 'q_u_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
     q_μlogDu_flat = keras.layers.Concatenate(name='q_mulogDu_flat')(
         [q_μ_flat, q_logD_flat, q_u_flat])
     q_model = Model(inputs=([q_input]
@@ -96,7 +96,7 @@ def build_p(dims, use_bias=False):
     p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
                                   kernel_regularizer='l2', bias_regularizer='l2',
                                   name='p_layer1')(p_input)
-    p_adj = layers.Bilinear(0, use_bias=use_bias,
+    p_adj = layers.Bilinear(-2, use_bias=use_bias,
                             kernel_regularizer='l2', bias_regularizer='l2',
                             name='p_adj')([p_layer1, p_layer1])
     p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
