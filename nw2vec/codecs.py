@@ -25,12 +25,15 @@ class Codec:
         raise NotImplementedError
 
     def estimated_pred_loss(self, y_true, y_pred):
+        assert len(y_true.shape) >= 3
+        assert len(y_pred.shape) == len(y_true.shape)
         assert y_pred == self.params
         # This loss is *estimated*, i.e. based on a sample,
-        # hence the average over axis 1 which is the sampling axis
-        return - K.mean(self.logprobability(y_true), axis=1)
+        # hence the average over axis 0 which is the sampling axis
+        return - K.mean(self.logprobability(y_true), axis=0)
 
     def kl_to_normal_loss(self, y_true, y_pred):
+        assert len(y_pred.shape) == 2
         assert y_pred == self.params
         return self.kl_to_normal()
 
@@ -75,9 +78,9 @@ class Gaussian(Codec):
     def stochastic_value(self, n_samples):
         """TODOC"""
         μ_shape = tf.shape(self.μ)
-        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0))
-        return K.squeeze(expand_dims_tile(self.μ, -3, n_samples)
-                         + expand_dims_tile(self.R, -3, n_samples) @ ε,
+        ε = tf.random_normal(tf.concat([[n_samples], μ_shape], 0))
+        return K.squeeze(expand_dims_tile(self.μ, 0, n_samples)
+                         + expand_dims_tile(self.R, 0, n_samples) @ ε,
                          -1)
 
     # TOTEST
