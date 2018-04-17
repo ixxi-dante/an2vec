@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from keras import backend as K
 
-from nw2vec.utils import right_squeeze2, expand_dims_tile
+from nw2vec.utils import right_squeeze2, expand_dims_tile, broadcast_left
 
 
 class Codec:
@@ -26,6 +26,8 @@ class Codec:
 
     def estimated_pred_loss(self, y_true, y_pred):
         assert y_pred == self.params
+        # This loss is *estimated*, i.e. based on a sample,
+        # hence the average over axis 1 which is the sampling axis
         return - K.mean(self.logprobability(y_true), axis=1)
 
     def kl_to_normal_loss(self, y_true, y_pred):
@@ -81,9 +83,10 @@ class Gaussian(Codec):
     # TOTEST
     def logprobability(self, v):
         """TODOC"""
+        # Turn `v` into a column vector
         v = K.expand_dims(v, -1)
-        # In lieu of assert v.shape == self.μ.shape
-        v.shape.assert_is_compatible_with(self.μ.shape)
+        # Check shapes and broadcast
+        v = broadcast_left(v, self.μ.shape)
         return - .5 * (self.dim * np.log(2 * np.pi) + self.logdetC
                        + right_squeeze2(tf.matrix_transpose(v - self.μ)
                                         @ self.C_inv
@@ -107,8 +110,8 @@ class SigmoidBernoulli(Codec):
     # TOTEST
     def logprobability(self, v):
         """TODOC"""
-        # In lieu of assert v.shape == self.logits.shape
-        v.shape.assert_is_compatible_with(self.logits.shape)
+        # Check shapes and broadcast
+        v = broadcast_left(v, self.logits.shape)
         return - K.sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=v, logits=self.logits),
                        axis=-1)
 
@@ -123,8 +126,8 @@ class Bernoulli(Codec):
     # TOTEST
     def logprobability(self, v):
         """TODOC"""
-        # In lieu of assert v.shape == self.probs.shape
-        v.shape.assert_is_compatible_with(self.probs.shape)
+        # Check shapes and broadcast
+        v = broadcast_left(v, self.logits.shape)
         return K.sum(v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs), axis=-1)
 
 
