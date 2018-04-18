@@ -91,7 +91,7 @@ class GC(keras.layers.Layer):
         assert len(mask_shape) == 1
         assert len(features_shape) == 2
 
-        return (adj_shape[0], self.units)
+        return (None, self.units)
 
     def get_config(self):
         config = {
@@ -253,6 +253,7 @@ class Bilinear(keras.layers.Layer):
             output = output + self.bias
         if self.activation is not None:
             output = self.activation(output)
+        output = K.expand_dims(output, 0)
         return output
 
     def compute_output_shape(self, input_shapes):
@@ -263,7 +264,8 @@ class Bilinear(keras.layers.Layer):
         # Here we only want to skip it if there is none, not if we don't know its dimension.
         axes = ([] if len(input_shapes[0]) == 2 else [(0, diag_axis)]
                 + [(0, bilin_axis), (1, bilin_axis)])
-        return tuple([input_shapes[tensor][ax] if ax is not None else None for tensor, ax in axes])
+        return ((1,) + tuple([input_shapes[tensor][ax] if ax is not None else None
+                              for tensor, ax in axes]))
 
     def get_config(self):
         config = {
