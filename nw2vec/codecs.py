@@ -25,17 +25,26 @@ class Codec:
         raise NotImplementedError
 
     def estimated_pred_loss(self, y_true, y_pred):
-        assert len(y_true.shape) >= 3
-        assert len(y_pred.shape) == len(y_true.shape)
+        # `y_pred` has shape (batch, sampling[, ...]+), but `y_true` can
+        # be less than that if values are repeated (in which case
+        # `self.logprobability()` will broadcast it)
         assert y_pred == self.params
+        logprobability = self.logprobability(y_true)
+        # We're left with the batch axis + sampling axis. Whatever other
+        # inner dimensions there were in `y_pred` should be averaged
+        # over by `self.logprobability()`.
+        assert len(logprobability.shape) == 2
         # This loss is *estimated*, i.e. based on a sample,
-        # hence the average over axis 0 which is the sampling axis
-        return - K.mean(self.logprobability(y_true), axis=0)
+        # hence the average over axis 1 which is the sampling axis
+        return - K.mean(logprobability, axis=1)
 
     def kl_to_normal_loss(self, y_true, y_pred):
+        # `y_pred` has shape (batch, values), and `y_true` is ignored
         assert len(y_pred.shape) == 2
         assert y_pred == self.params
-        return self.kl_to_normal()
+        kl_to_normal = self.kl_to_normal()
+        assert len(kl_to_normal.shape) == 1
+        return kl_to_normal
 
 
 class Gaussian(Codec):
@@ -78,9 +87,9 @@ class Gaussian(Codec):
     def stochastic_value(self, n_samples):
         """TODOC"""
         μ_shape = tf.shape(self.μ)
-        ε = tf.random_normal(tf.concat([[n_samples], μ_shape], 0))
-        return K.squeeze(expand_dims_tile(self.μ, 0, n_samples)
-                         + expand_dims_tile(self.R, 0, n_samples) @ ε,
+        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0))
+        return K.squeeze(expand_dims_tile(self.μ, -3, n_samples)
+                         + expand_dims_tile(self.R, -3, n_samples) @ ε,
                          -1)
 
     # TOTEST
@@ -115,8 +124,10 @@ class SigmoidBernoulli(Codec):
         """TODOC"""
         # Check shapes and broadcast
         v = broadcast_left(v, self.logits)
-        return - K.sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=v, logits=self.logits),
-                       axis=-1)
+        shape_flat = tf.concat([tf.shape(v)[:2], [-1]], 0)
+        sigmoid_cross_entropies = tf.nn.sigmoid_cross_entropy_with_logits(labels=v,
+                                                                          logits=self.logits)
+        return - K.sum(tf.reshape(sigmoid_cross_entropies, shape_flat), axis=-1)
 
 
 class Bernoulli(Codec):
@@ -131,7 +142,9 @@ class Bernoulli(Codec):
         """TODOC"""
         # Check shapes and broadcast
         v = broadcast_left(v, self.logits)
-        return K.sum(v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs), axis=-1)
+        shape_flat = tf.concat([tf.shape(v)[:2], [-1]], 0)
+        cross_entropies = v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs)
+        return K.sum(tf.reshape(cross_entropies, shape_flat), axis=-1)
 
 
 @functools.lru_cache(typed=True)
