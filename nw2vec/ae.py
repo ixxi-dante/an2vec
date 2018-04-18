@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import keras
 import tensorflow as tf
 
@@ -7,7 +9,7 @@ from nw2vec import codecs
 
 class Model(keras.Model):
 
-    def predict_on_fed_batch(self, x, feeds={}):
+    def _get_feed_dict_and_translator(self):
         # Get the model's `feed_dict`
         if (not hasattr(self, '_function_kwargs')
                 or not isinstance(self._function_kwargs, dict)
@@ -18,11 +20,23 @@ class Model(keras.Model):
                                   "or has no `feed_dict` dict. Most likely this "
                                   "model has been compiled or has run a "
                                   "prediction without a feed_dict.").format(self))
+            if hasattr(self, 'train_function'):
+                raise ValueError(("Model {} has a `train_function` but "
+                                  "`_function_kwargs` is absent or is `None`, "
+                                  "or has no `feed_dict` dict. Most likely this "
+                                  "model has been compiled or has run a "
+                                  "training without a feed_dict.").format(self))
+            if hasattr(self, 'test_function'):
+                raise ValueError(("Model {} has a `test_function` but "
+                                  "`_function_kwargs` is absent or is `None`, "
+                                  "or has no `feed_dict` dict. Most likely this "
+                                  "model has been compiled or has run a "
+                                  "test without a feed_dict.").format(self))
             else:
-                # No `feed_dict`, but also no `predict_function`,
+                # No `feed_dict`, but also no `predict|train|test_function`,
                 # so we can safely add a `_function_kwargs` with a `feed_dict`
-                # and it will be used upon compilation of the `predict_function`
-                # (which happens at the next call to one of the model.predict*
+                # and it will be used upon compilation of the `predict|train|test_function`
+                # (which happens at the next call to one of the model.predict|train|test*
                 # methods).
                 self._function_kwargs = {'feed_dict': {}}
         feed_dict = self._function_kwargs['feed_dict']
@@ -37,6 +51,12 @@ class Model(keras.Model):
             assert len(feed_layer._inbound_nodes[0].input_tensors) == 1
             feeds_to_tensors[feed_layer.name] = feed_layer._inbound_nodes[0].input_tensors[0].name
 
+        return feed_dict, feeds_to_tensors
+
+    @contextmanager
+    def food(self, feeds):
+        feed_dict, feeds_to_tensors = self._get_feed_dict_and_translator()
+
         # `feeds` should provide values for all the input tensors we found
         assert set(feeds_to_tensors.keys()) == set(feeds.keys())
 
@@ -45,11 +65,17 @@ class Model(keras.Model):
         feed_dict.clear()
         feed_dict.update({tensor_name: feeds[feed_name]
                           for feed_name, tensor_name in feeds_to_tensors.items()})
-
-        # Run the prediction and clean up so no other calls inadvertently use this `feed_dict`
-        out = self.predict_on_batch(x)
+        # Run the inner operation and clean up so no other calls inadvertently use this `feed_dict`
+        yield
         feed_dict.clear()
-        return out
+
+    def train_on_fed_batch(self, x, y, feeds={}, **kwargs):
+        with self.food(feeds):
+            return self.train_on_batch(x, y, **kwargs)
+
+    def predict_on_fed_batch(self, x, feeds={}):
+        with self.food(feeds):
+            return self.predict_on_batch(x)
 
 
 def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
@@ -57,7 +83,7 @@ def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
                                                    name=name + '_adj'),
                              name=name + '_adj')
     mask = keras.layers.Input(tensor=tf.placeholder(tf.float32, shape=(None,),
-                                                   name=name + '_output_mask'),
+                                                    name=name + '_output_mask'),
                               name=name + '_output_mask')
     gc = layers.GC(dim, name=name, **gc_kwargs)([adj, mask, inlayer])
     return [adj, mask], gc
@@ -96,7 +122,7 @@ def build_p(dims, use_bias=False):
     p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
                                   kernel_regularizer='l2', bias_regularizer='l2',
                                   name='p_layer1')(p_input)
-    p_adj = layers.Bilinear(-2, use_bias=use_bias,
+    p_adj = layers.Bilinear(0, use_bias=use_bias,
                             kernel_regularizer='l2', bias_regularizer='l2',
                             name='p_adj')([p_layer1, p_layer1])
     p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
