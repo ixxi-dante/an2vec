@@ -63,8 +63,12 @@ def broadcast_left(array, target_array):
                 [tf.assert_rank_at_least(target_array, array_rank),
                  tf.assert_equal(array_shape, target_shape[- array_rank:])]):
             # Actually reshape and broadcast
-            degen_shape = tf.concat([tf.ones(target_rank - array_rank, dtype=tf.int32), array_shape], 0)
-            multiples = tf.concat([target_shape[:- array_rank], tf.ones(array_rank, dtype=tf.int32)], 0)
+            degen_shape = tf.concat([tf.ones(target_rank - array_rank, dtype=tf.int32),
+                                     array_shape],
+                                    0)
+            multiples = tf.concat([target_shape[:- array_rank],
+                                   tf.ones(array_rank, dtype=tf.int32)],
+                                  0)
             out = tf.tile(tf.reshape(array, degen_shape), multiples, name=scope)
 
             # Inform the static shape
@@ -74,7 +78,7 @@ def broadcast_left(array, target_array):
 
 
 def get_backend(array):
-    return K if isinstance(array, tf.Tensor) else np
+    return tf if isinstance(array, (tf.Tensor, tf.Variable)) else np
 
 
 # TOTEST
@@ -94,8 +98,11 @@ def expand_dims_tile(array, dim_position, multiple):
     # `dim_position`.
     backend = get_backend(array)
     array = backend.expand_dims(array, dim_position)
-    multiples = np.ones(len(array.shape), dtype=np.int32)
-    multiples[dim_position] = multiple
+    multiples = backend.ones(len(array.shape), dtype=backend.int32)
+    concat = backend.concatenate if backend == np else backend.concat
+    multiples = concat([multiples[:dim_position], [multiple],
+                        multiples[dim_position + 1:]],
+                       0)
     return backend.tile(array, multiples)
 
 
