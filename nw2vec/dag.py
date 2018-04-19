@@ -40,7 +40,7 @@ def subdag(dag, func):
 
     roots = [n for n in dag.nodes if len(list(dag.predecessors(n))) == 0]
     filtered_children = {}
-    for root in roots:
+    for root in set(roots):
         _collect_node_filtered_children_dict(dag, root, func, filtered_children)
 
     subdag_dict = dict((n, children) for n, children in filtered_children.items() if func(n))
@@ -65,7 +65,7 @@ def restrict(dag, roots):
     assert nx.is_directed_acyclic_graph(dag)
 
     descendants = {}
-    for root in roots:
+    for root in set(roots):
         _collect_node_descendants_dict(dag, root, descendants)
 
     roots_descendants = set().union(roots, *[descendants[root] for root in roots])
