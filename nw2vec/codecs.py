@@ -120,31 +120,22 @@ class SigmoidBernoulli(Codec):
         self.logits = params
 
     # TOTEST
-    def logprobability(self, v):
+    def logprobability(self, adj):
         """TODOC"""
         # Check shapes and broadcast
-        v = broadcast_left(v, self.logits)
-        shape_flat = tf.concat([tf.shape(v)[:2], [-1]], 0)
-        sigmoid_cross_entropies = tf.nn.sigmoid_cross_entropy_with_logits(labels=v,
-                                                                          logits=self.logits)
-        return - K.sum(tf.reshape(sigmoid_cross_entropies, shape_flat), axis=-1)
+        adj = broadcast_left(adj, self.logits)
+        # `adj` now has shape (batch, sampling, bilin axis 0, bilin axis 1)
+        assert len(adj.shape) == 4  # If this fails, changee it to a dynamic check
 
+        density = K.mean(adj)
+        weighted_sigmoid_cross_entropies = (
+            .5
+            * tf.nn.weighted_cross_entropy_with_logits(
+                targets=adj, logits=self.logits, pos_weight=(1 / density) - 1)
+            / (1 - density)
+        )
 
-class Bernoulli(Codec):
-
-    def __init__(self, params):
-        """TODOC"""
-        super(Bernoulli, self).__init__(params)
-        self.probs = params
-
-    # TOTEST
-    def logprobability(self, v):
-        """TODOC"""
-        # Check shapes and broadcast
-        v = broadcast_left(v, self.logits)
-        shape_flat = tf.concat([tf.shape(v)[:2], [-1]], 0)
-        logprob = v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs)
-        return K.sum(tf.reshape(logprob, shape_flat), axis=-1)
+        return - K.mean(weighted_sigmoid_cross_entropies, axis=[-2, -1])
 
 
 @functools.lru_cache(typed=True)
