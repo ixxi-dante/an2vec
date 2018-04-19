@@ -143,8 +143,8 @@ class Bernoulli(Codec):
         # Check shapes and broadcast
         v = broadcast_left(v, self.logits)
         shape_flat = tf.concat([tf.shape(v)[:2], [-1]], 0)
-        cross_entropies = v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs)
-        return K.sum(tf.reshape(cross_entropies, shape_flat), axis=-1)
+        logprob = v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs)
+        return K.sum(tf.reshape(logprob, shape_flat), axis=-1)
 
 
 @functools.lru_cache(typed=True)
