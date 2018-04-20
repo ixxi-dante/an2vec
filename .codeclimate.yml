@@ -8,3 +8,9 @@ engines:
       # Line break after binary operator
       W504:
         enabled: true
+exclude_patterns:
+- "animations/"
+- "data/"
+- "gcn/"
+- "graphsage/"
+- ".flake8"
