@@ -1,0 +1,10 @@
+engines:
+  pep8:
+    enabled: true
+    checks:
+      # Line break before binary operator
+      W503:
+        enabled: false
+      # Line break after binary operator
+      W504:
+        enabled: true
