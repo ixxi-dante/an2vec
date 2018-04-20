@@ -385,7 +385,7 @@ def build_p(dims, use_bias=False):
         [p_v_μ_flat, p_v_logD_flat, p_v_u_flat])
     p_model = Model(inputs=p_input, outputs=[p_adj, p_v_μlogDu_flat])
 
-    return p_model, ('SigmoidBernoulli', 'Gaussian')
+    return p_model, ('SigmoidBernoulliAdjacency', 'Gaussian')
 
 
 def build_vae(q_model_codecs, p_model_codecs, n_ξ_samples, loss_weights):
