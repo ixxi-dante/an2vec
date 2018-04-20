@@ -18,21 +18,24 @@ def _layer_csr_adj(out_nodes, adj, neighbour_samples):
     # Get the neighbours of the out nodes
     row_ind, col_ind = np.where(adj[out_nodes, :] > 0)  # TODO: memoize
     row_ind = out_nodes[row_ind]  # both `row_ind` and `col_ind` must index into `adj`
-    if neighbour_samples is not None:
-        sampled_row_ind = []
-        sampled_col_ind = []
-        for out_node in out_nodes:
-            neighbours = col_ind[row_ind == out_node]  # TODO: memoize
-            if len(neighbours) > 0:
-                # If there are no neighours, nothing to sample from, so we're done for this node
-                sample_size = np.min([len(neighbours), neighbour_samples])
-                sampled_row_ind.extend([out_node] * sample_size)
-                sampled_col_ind.extend(np.random.choice(neighbours, size=sample_size,
-                                                        replace=False))
 
-        row_ind, col_ind = sampled_row_ind, sampled_col_ind
+    if neighbour_samples is None:
+        return (row_ind, col_ind)
 
-    return (row_ind, col_ind)
+    # Sample each node's row
+    sampled_row_ind = []
+    sampled_col_ind = []
+    for out_node in out_nodes:
+        neighbours = col_ind[row_ind == out_node]  # TODO: memoize
+        if len(neighbours) == 0:
+            # If there are no neighours, nothing to sample from, so we're done for this node
+            continue
+
+        sample_size = np.min([len(neighbours), neighbour_samples])
+        sampled_row_ind.extend([out_node] * sample_size)
+        sampled_col_ind.extend(np.random.choice(neighbours, size=sample_size, replace=False))
+
+    return (sampled_row_ind, sampled_col_ind)
 
 
 def mask_indices(indices, size):
@@ -43,7 +46,7 @@ def mask_indices(indices, size):
     return mask
 
 
-def _compute_batch(model, adj, final_nodes, neighbour_samples):
+def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
     layers_crops = {}
     model_dag = dag.model_dag(model)
     gc_dag = dag.subdag(model_dag, lambda n: isinstance(n, layers.GC))
@@ -65,6 +68,13 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
         layers_crops[layer.name] = {'csr_adj': csr_adj,
                                     'out_nodes': out_nodes,
                                     'in_nodes': set().union(out_nodes, csr_adj[1])}
+
+    return layers_crops
+
+
+def _compute_batch(model, adj, final_nodes, neighbour_samples):
+    # Collect the crop dicts for each layer
+    layers_crops = _collect_layers_crops(model, adj, final_nodes, neighbour_samples)
 
     # Get the sorted list of nodes required by the whole network for this batch
     required_nodes = set().union(*[crop['in_nodes'] for crop in layers_crops.values()])
