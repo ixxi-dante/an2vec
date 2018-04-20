@@ -112,20 +112,22 @@ class Gaussian(Codec):
                      - self.dim)
 
 
-class SigmoidBernoulli(Codec):
+class SigmoidBernoulliAdjacency(Codec):
 
     def __init__(self, params):
         """TODOC"""
-        super(SigmoidBernoulli, self).__init__(params)
+        super(SigmoidBernoulliAdjacency, self).__init__(params)
         self.logits = params
 
     # TOTEST
     def logprobability(self, adj):
         """TODOC"""
+        # This implementation is only valid for an adjacency matrix as input, not for a vector
+
         # Check shapes and broadcast
         adj = broadcast_left(adj, self.logits)
-        # `adj` now has shape (batch, sampling, bilin axis 0, bilin axis 1)
-        assert len(adj.shape) == 4  # If this fails, changee it to a dynamic check
+        # `adj` now has shape (batch or 1, sampling, batch, batch)
+        assert len(adj.shape) == 4  # If this fails, change it to a dynamic check
 
         density = K.mean(adj)
         weighted_sigmoid_cross_entropies = (
@@ -135,7 +137,7 @@ class SigmoidBernoulli(Codec):
             / (1 - density)
         )
 
-        return - K.mean(weighted_sigmoid_cross_entropies, axis=[-2, -1])
+        return - K.mean(K.sum(weighted_sigmoid_cross_entropies, axis=-1), axis=-1)
 
 
 @functools.lru_cache(typed=True)
