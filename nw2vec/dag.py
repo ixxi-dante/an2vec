@@ -11,7 +11,7 @@ def _collect_node_filtered_children_dict(dag, node, func, collected):
     for child in dag.successors(node):
         if child not in collected:
             _collect_node_filtered_children_dict(dag, child, func, collected)
-        children.update([child] if func[child] else collected[child])
+        children.update([child] if func(child) else collected[child])
 
     collected[node] = children
 
