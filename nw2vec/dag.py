@@ -7,16 +7,11 @@ def _collect_node_filtered_children_dict(dag, node, func, collected):
     if node in collected:
         raise ValueError("Was already called on node '{}'".format(node))
 
+    children = set()
     for child in dag.successors(node):
         if child not in collected:
             _collect_node_filtered_children_dict(dag, child, func, collected)
-
-    children = set()
-    for child in dag.successors(node):
-        if func(child):
-            children.add(child)
-        else:
-            children.update(collected[child])
+        children.update([child] if func[child] else collected[child])
 
     collected[node] = children
 
@@ -27,14 +22,11 @@ def _collect_node_descendants_dict(dag, node, collected):
     if node in collected:
         raise ValueError("Was already called on node '{}'".format(node))
 
+    descendants = set()
     for child in dag.successors(node):
         if child not in collected:
             _collect_node_descendants_dict(dag, child, collected)
-
-    descendants = set()
-    for child in dag.successors(node):
-        descendants.add(child)
-        descendants.update(collected[child])
+        descendants.update([child], collected[child])
 
     collected[node] = descendants
 
