@@ -4,16 +4,15 @@ import keras
 from keras import backend as K
 
 from nw2vec import codecs
-from nw2vec import utils
 
 
 class GC(keras.layers.Layer):
 
     def __init__(self,
                  units,
-                 adj,
                  activation=None,
                  use_bias=True,
+                 gather_mask=False,
                  kernel_initializer='glorot_uniform',
                  bias_initializer='zeros',
                  kernel_regularizer=None,
@@ -22,17 +21,11 @@ class GC(keras.layers.Layer):
                  kernel_constraint=None,
                  bias_constraint=None,
                  **kwargs):
-        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
-            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
-
-        # Validate arguments
-        assert len(adj.shape) == 2 and adj.shape[0] == adj.shape[1]
-
         super(GC, self).__init__(**kwargs)
         self.units = units
-        self.adj = adj
         self.activation = keras.activations.get(activation)
         self.use_bias = use_bias
+        self.gather_mask = gather_mask
         self.kernel_initializer = keras.initializers.get(kernel_initializer)
         self.bias_initializer = keras.initializers.get(bias_initializer)
         self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
@@ -40,18 +33,22 @@ class GC(keras.layers.Layer):
         self.activity_regularizer = keras.regularizers.get(activity_regularizer)
         self.kernel_constraint = keras.constraints.get(kernel_constraint)
         self.bias_constraint = keras.constraints.get(bias_constraint)
-        self.input_spec = keras.engine.InputSpec(min_ndim=2)
-        self.supports_masking = True
+        self.input_spec = [keras.engine.InputSpec(ndim=2),
+                           keras.engine.InputSpec(ndim=1),
+                           keras.engine.InputSpec(ndim=2)]
+        self.supports_masking = False
 
-    def build(self, input_shape):
-        assert len(input_shape) >= 2
-        input_dim = input_shape[-1]
+    def build(self, input_shapes):
+        adj_shape, mask_shape, features_shape = input_shapes
 
-        A_tilde = self.adj + tf.eye(self.adj.shape[0])
-        D_tilde_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=1)))
-        self.A_hat = D_tilde_inv_sqrt @ A_tilde @ D_tilde_inv_sqrt
+        assert len(adj_shape) == 2
+        assert len(mask_shape) == 1
+        assert len(features_shape) == 2
 
-        self.kernel = self.add_weight(shape=(input_dim, self.units),
+        n_nodes = adj_shape[0]
+        features_dim = features_shape[1]
+
+        self.kernel = self.add_weight(shape=(features_dim, self.units),
                                       initializer=self.kernel_initializer,
                                       name='kernel',
                                       regularizer=self.kernel_regularizer,
@@ -64,31 +61,44 @@ class GC(keras.layers.Layer):
                                         constraint=self.bias_constraint)
         else:
             self.bias = None
-        self.input_spec = keras.engine.InputSpec(min_ndim=2, axes={-1: input_dim,
-                                                                   0: self.adj.shape[0]})
-        super(GC, self).build(input_shape)
+        self.input_spec = [keras.engine.InputSpec(ndim=2, axes={0: n_nodes, 1: n_nodes}),
+                           keras.engine.InputSpec(ndim=1, axes={0: n_nodes}),
+                           keras.engine.InputSpec(ndim=2, axes={0: n_nodes, 1: features_dim})]
+        super(GC, self).build(input_shapes)
 
     def call(self, inputs):
-        output = tf.matmul(self.A_hat, inputs @ self.kernel, a_is_sparse=True)
+        adj, mask, features = inputs
+
+        A_tilde = adj + tf.eye(tf.shape(adj)[0])
+        D_tilde_out_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=0)))
+        D_tilde_in_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=1)))
+        A_hat = D_tilde_out_inv_sqrt @ A_tilde @ D_tilde_in_inv_sqrt
+
+        output = tf.matmul(A_hat, features @ self.kernel, a_is_sparse=True)
         if self.use_bias:
             output = K.bias_add(output, self.bias)
         if self.activation is not None:
             output = self.activation(output)
+        if self.gather_mask:
+            output = tf.boolean_mask(output, mask)
+        else:
+            output = output * K.expand_dims(mask, -1)
         return output
 
-    def compute_output_shape(self, input_shape):
-        assert len(input_shape) >= 2
-        assert input_shape[-1] > 0
-        output_shape = list(input_shape)
-        output_shape[-1] = self.units
-        return tuple(output_shape)
+    def compute_output_shape(self, input_shapes):
+        adj_shape, mask_shape, features_shape = input_shapes
+        assert len(adj_shape) == 2
+        assert len(mask_shape) == 1
+        assert len(features_shape) == 2
+
+        return (None, self.units)
 
     def get_config(self):
         config = {
             'units': self.units,
-            'adj': self.adj,
             'activation': keras.activations.serialize(self.activation),
             'use_bias': self.use_bias,
+            'gather_mask': self.gather_mask,
             'kernel_initializer': keras.initializers.serialize(self.kernel_initializer),
             'bias_initializer': keras.initializers.serialize(self.bias_initializer),
             'kernel_regularizer': keras.regularizers.serialize(self.kernel_regularizer),
@@ -116,7 +126,6 @@ class Bilinear(keras.layers.Layer):
 
     def __init__(self,
                  bilin_axis,
-                 batch_size,
                  fixed_kernel=None,
                  fixed_bias=None,
                  activation=None,
@@ -138,7 +147,6 @@ class Bilinear(keras.layers.Layer):
 
         super(Bilinear, self).__init__(**kwargs)
         self.bilin_axis = bilin_axis
-        self.batch_size = batch_size
         self.fixed_kernel = fixed_kernel
         self.fixed_bias = fixed_bias
         self.activation = keras.activations.get(activation)
@@ -150,8 +158,7 @@ class Bilinear(keras.layers.Layer):
         self.activity_regularizer = keras.regularizers.get(activity_regularizer)
         self.kernel_constraint = keras.constraints.get(kernel_constraint)
         self.bias_constraint = keras.constraints.get(bias_constraint)
-        self.input_spec = [keras.engine.InputSpec(min_ndim=2, max_ndim=3,
-                                                  axes={bilin_axis: self.batch_size})] * 2
+        self.input_spec = [keras.engine.InputSpec(min_ndim=2, max_ndim=3)] * 2
         self.supports_masking = False
 
     def _process_input_shapes(self, input_shapes, check_concrete=True):
@@ -161,26 +168,40 @@ class Bilinear(keras.layers.Layer):
         # The two tensors must have the same shape
         assert input_shapes[0] == input_shapes[1]
         shape = input_shapes[0]
-        assert len(shape) == 2 or len(shape) == 3
+        assert len(shape) in [2, 3]
 
-        shape_is_fully_defined = None not in shape and tf.Dimension(None) not in shape
+        shapes_are_fully_defined = all([(None not in input_shape
+                                         and tf.Dimension(None) not in input_shape)
+                                        for input_shape in input_shapes])
+
+        # Should we require fully defined shapes?
         if check_concrete:
-            assert shape_is_fully_defined
-        if shape_is_fully_defined:
-            # Concretise axis for this fully defined shape
+            assert shapes_are_fully_defined
+
+        # Get the bilinear axis
+        if shapes_are_fully_defined:
             bilin_axis = self.bilin_axis % len(shape)
         else:
             bilin_axis = self.bilin_axis
-        # Reduction axis cannot be the bilinear axis
+
+        # Check the reduction axis is not the bilinear axis
         assert len(shape) - 1 != bilin_axis
-        if not shape_is_fully_defined:
+        if not shapes_are_fully_defined:
             assert -1 != bilin_axis
 
-        if shape_is_fully_defined and len(shape) == 3:
+        # Get the diag_axis if it exists
+        if shapes_are_fully_defined and len(shape) == 3:
             assert bilin_axis in [0, 1]
             diag_axis = 1 - bilin_axis
+            # The diag_axis dimensions must be the same for both tensors.
+            # This is also dynamically checked for in `self.call()` for the case
+            # where the shapes are not fully defined here.
+            assert input_shapes[0][diag_axis] == input_shapes[1][diag_axis]
         else:
             diag_axis = None
+
+        # Note that diag_axis can be `None` either because there is none (len(shape) == 2),
+        # or because the shapes are not fully defined
         return bilin_axis, diag_axis, shape[-1]
 
     def build(self, input_shapes):
@@ -198,22 +219,16 @@ class Bilinear(keras.layers.Layer):
             if self.fixed_bias is not None:
                 self.bias = K.constant(self.fixed_bias)
             else:
-                self.bias = self.add_weight(shape=(1,),
+                self.bias = self.add_weight(shape=(),
                                             initializer=self.bias_initializer,
                                             name='bias',
                                             regularizer=self.bias_regularizer,
                                             constraint=self.bias_constraint)
-            # K.bias_add (in self.call()) requires something that has shape dim(output) - 1.
-            # In this case we want the same bias added to all bilinear combinations, so we
-            # tile our scalar into a vector, which gets added to all columns of the bilinear
-            # matrix output
-            self.bias = K.tile(self.bias, [self.batch_size])
         else:
             self.bias = None
 
         self.input_spec = [keras.layers.InputSpec(min_ndim=2, max_ndim=3,
-                                                  axes={-1: input_dim,
-                                                        bilin_axis: self.batch_size})] * 2
+                                                  axes={-1: input_dim})] * 2
         super(Bilinear, self).build(input_shapes)
 
     def call(self, inputs):
@@ -223,34 +238,38 @@ class Bilinear(keras.layers.Layer):
         Q_tensor1 = tf.tensordot(tensor1, self.kernel, axes=[[-1], [1]])
         output = tf.tensordot(tensor0, Q_tensor1, axes=[[-1], [-1]])
         if diag_axis is not None:
-            # Put the bilinear axes first and the diagonal axes last
-            output = tf.transpose(output,
-                                  perm=[bilin_axis, 2 + bilin_axis, diag_axis, 2 + diag_axis])
-            # Take the diagonal elements for the diagonal axes
-            output = tf.matrix_diag_part(output)
-            # Put the reduced diagonal axis first, the bilinear axes last
-            output = tf.transpose(output, perm=[2, 0, 1])
+            # Dynamically check that both tensors have the same dimension in diag_axis
+            with tf.control_dependencies(
+                    [tf.assert_equal(tf.shape(tensor0)[diag_axis], tf.shape(tensor1)[diag_axis])]):
+                # Put the bilinear axes first and the diagonal axes last
+                output = tf.transpose(output,
+                                      perm=[bilin_axis, 2 + bilin_axis, diag_axis, 2 + diag_axis])
+                # Take the diagonal elements for the diagonal axes
+                output = tf.matrix_diag_part(output)
+                # Put the reduced diagonal axis first, the bilinear axes last
+                output = tf.transpose(output, perm=[2, 0, 1])
 
         if self.use_bias:
-            output = K.bias_add(output, self.bias)
+            output = output + self.bias
         if self.activation is not None:
             output = self.activation(output)
+        output = K.expand_dims(output, 0)
         return output
 
     def compute_output_shape(self, input_shapes):
         bilin_axis, diag_axis, _ = self._process_input_shapes(input_shapes, check_concrete=False)
-        shape = input_shapes[0]
-        bilin_axes = [bilin_axis]
-        # diag_axis can be None either because there is none (i.e. len(shape) == 2) or
-        # because we don't know its dimension (i.e. shape[diag_axis] is None)
-        diag_axes = [] if len(shape) == 2 else [diag_axis]
-        return tuple([input_shapes[0][ax] if ax is not None else None
-                      for ax in diag_axes + 2 * bilin_axes])
+        # diag_axis can be None either because there is none
+        # (i.e. len(input_shapes[0]) == len(input_shapes[1]) == 2) or
+        # because we don't know its dimension (i.e. shape[diag_axis] is None).
+        # Here we only want to skip it if there is none, not if we don't know its dimension.
+        axes = ([] if len(input_shapes[0]) == 2 else [(0, diag_axis)]
+                + [(0, bilin_axis), (1, bilin_axis)])
+        return ((1,) + tuple([input_shapes[tensor][ax] if ax is not None else None
+                              for tensor, ax in axes]))
 
     def get_config(self):
         config = {
             'bilin_axis': self.bilin_axis,
-            'batch_size': self.batch_size,
             'fixed_kernel': self.fixed_kernel,
             'fixed_bias': self.fixed_bias,
             'activation': keras.activations.serialize(self.activation),

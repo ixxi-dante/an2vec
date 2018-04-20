@@ -25,14 +25,26 @@ class Codec:
         raise NotImplementedError
 
     def estimated_pred_loss(self, y_true, y_pred):
+        # `y_pred` has shape (batch, sampling[, ...]+), but `y_true` can
+        # be less than that if values are repeated (in which case
+        # `self.logprobability()` will broadcast it)
         assert y_pred == self.params
+        logprobability = self.logprobability(y_true)
+        # We're left with the batch axis + sampling axis. Whatever other
+        # inner dimensions there were in `y_pred` should be averaged
+        # over by `self.logprobability()`.
+        assert len(logprobability.shape) == 2
         # This loss is *estimated*, i.e. based on a sample,
         # hence the average over axis 1 which is the sampling axis
-        return - K.mean(self.logprobability(y_true), axis=1)
+        return - K.mean(logprobability, axis=1)
 
     def kl_to_normal_loss(self, y_true, y_pred):
+        # `y_pred` has shape (batch, values), and `y_true` is ignored
+        assert len(y_pred.shape) == 2
         assert y_pred == self.params
-        return self.kl_to_normal()
+        kl_to_normal = self.kl_to_normal()
+        assert len(kl_to_normal.shape) == 1
+        return kl_to_normal
 
 
 class Gaussian(Codec):
@@ -74,8 +86,8 @@ class Gaussian(Codec):
     # TOTEST
     def stochastic_value(self, n_samples):
         """TODOC"""
-        μ_shape = self.μ.shape.as_list()
-        ε = tf.random_normal(μ_shape[:-2] + [n_samples] + μ_shape[-2:])
+        μ_shape = tf.shape(self.μ)
+        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0))
         return K.squeeze(expand_dims_tile(self.μ, -3, n_samples)
                          + expand_dims_tile(self.R, -3, n_samples) @ ε,
                          -1)
@@ -86,7 +98,7 @@ class Gaussian(Codec):
         # Turn `v` into a column vector
         v = K.expand_dims(v, -1)
         # Check shapes and broadcast
-        v = broadcast_left(v, self.μ.shape)
+        v = broadcast_left(v, self.μ)
         return - .5 * (self.dim * np.log(2 * np.pi) + self.logdetC
                        + right_squeeze2(tf.matrix_transpose(v - self.μ)
                                         @ self.C_inv
@@ -100,35 +112,32 @@ class Gaussian(Codec):
                      - self.dim)
 
 
-class SigmoidBernoulli(Codec):
+class SigmoidBernoulliAdjacency(Codec):
 
     def __init__(self, params):
         """TODOC"""
-        super(SigmoidBernoulli, self).__init__(params)
+        super(SigmoidBernoulliAdjacency, self).__init__(params)
         self.logits = params
 
     # TOTEST
-    def logprobability(self, v):
+    def logprobability(self, adj):
         """TODOC"""
+        # This implementation is only valid for an adjacency matrix as input, not for a vector
+
         # Check shapes and broadcast
-        v = broadcast_left(v, self.logits.shape)
-        return - K.sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=v, logits=self.logits),
-                       axis=-1)
+        adj = broadcast_left(adj, self.logits)
+        # `adj` now has shape (batch or 1, sampling, batch, batch)
+        assert len(adj.shape) == 4  # If this fails, change it to a dynamic check
 
+        density = K.mean(adj)
+        weighted_sigmoid_cross_entropies = (
+            .5
+            * tf.nn.weighted_cross_entropy_with_logits(
+                targets=adj, logits=self.logits, pos_weight=(1 / density) - 1)
+            / (1 - density)
+        )
 
-class Bernoulli(Codec):
-
-    def __init__(self, params):
-        """TODOC"""
-        super(Bernoulli, self).__init__(params)
-        self.probs = params
-
-    # TOTEST
-    def logprobability(self, v):
-        """TODOC"""
-        # Check shapes and broadcast
-        v = broadcast_left(v, self.logits.shape)
-        return K.sum(v * K.log(self.probs) + (1.0 - v) * K.log(1 - self.probs), axis=-1)
+        return - K.mean(K.sum(weighted_sigmoid_cross_entropies, axis=-1), axis=-1)
 
 
 @functools.lru_cache(typed=True)
