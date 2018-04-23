@@ -35,6 +35,7 @@ dependencies:
 - seaborn
 - spacy
 - statsmodels
+- tqdm
 - ujson
 - pip:
   - jupyterlab
@@ -44,7 +45,6 @@ dependencies:
   - keras-tqdm
   - nbdime
   - setuptools-rust
-  - tqdm
   - "https://anaconda.org/intel/tensorflow/1.6.0/download/tensorflow-1.6.0-cp36-cp36m-linux_x86_64.whl"
   - "git+https://github.com/ixxi-dante/keras@b50534bd55151c72782ecc630e21bb2e4d9a68d7#egg=keras"
   - "git+https://github.com/ixxi-dante/jwalk@fd8d2e83cf5726dfcba96b6ff6991e4cd974d594#egg=jwalk"
