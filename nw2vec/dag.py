@@ -1,4 +1,8 @@
+import functools
+
 import networkx as nx
+
+from nw2vec import layers
 
 
 def _collect_node_filtered_children_dict(dag, node, func, collected):
@@ -29,6 +33,11 @@ def _collect_node_descendants_dict(dag, node, collected):
         descendants.update([child], collected[child])
 
     collected[node] = descendants
+
+
+@functools.lru_cache()
+def subdag_GC(dag):
+    return subdag(dag, lambda n: isinstance(n, layers.GC))
 
 
 def subdag(dag, func):
@@ -70,6 +79,7 @@ def restrict(dag, roots):
                                  create_using=nx.DiGraph())
 
 
+@functools.lru_cache()
 def model_dag(model):
     dag_dict = {}
     for input_layer in model.input_layers:
