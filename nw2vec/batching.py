@@ -50,7 +50,7 @@ def mask_indices(indices, size):
 def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
     layers_crops = {}
     model_dag = dag.model_dag(model)
-    gc_dag = dag.subdag(model_dag, lambda n: isinstance(n, layers.GC))
+    gc_dag = dag.subdag_GC(model_dag)
 
     for layer in reversed(list(nx.topological_sort(gc_dag))):
         # Get the nodes required by our children layers, which are the ones we will output for
@@ -83,19 +83,18 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
     # Reduce the global adjacency matrix to only those nodes
     reqadj = adj[required_nodes, :][:, required_nodes]
     # Pre-compute conversion of node ids in `adj` to ids in `reqadj`
-    global_to_sub = {node: i for i, node in enumerate(required_nodes)}
+    global_to_req = {node: i for i, node in enumerate(required_nodes)}
 
     # Create the reqadjs to be fed to each layer
     feeds = {}
     for name, crop in layers_crops.items():
-        row_ind_reqadj = [global_to_sub[row] for row in crop['csr_adj'][0]]
-        col_ind_reqadj = [global_to_sub[col] for col in crop['csr_adj'][1]]
-        layer_reqadj_mask = np.array(scipy.sparse.csr_matrix((np.ones(len(row_ind_reqadj)),
-                                                              (row_ind_reqadj, col_ind_reqadj)),
-                                                             shape=reqadj.shape).todense())
+        row_ind_reqadj = [global_to_req[row] for row in crop['csr_adj'][0]]
+        col_ind_reqadj = [global_to_req[col] for col in crop['csr_adj'][1]]
+        layer_reqadj_mask = np.zeros(reqadj.shape)
+        layer_reqadj_mask[row_ind_reqadj, col_ind_reqadj] = 1
         feeds[name + '_adj'] = reqadj * layer_reqadj_mask
 
-        out_nodes_reqadj = set([global_to_sub[out_node] for out_node in crop['out_nodes']])
+        out_nodes_reqadj = set([global_to_req[out_node] for out_node in crop['out_nodes']])
         feeds[name + '_output_mask'] = mask_indices(out_nodes_reqadj, reqadj.shape[0])
 
     return required_nodes, feeds
