@@ -1,10 +1,11 @@
+import random
+
 import numpy as np
 import scipy.sparse
 import networkx as nx
 
 from nw2vec import layers
 from nw2vec import dag
-from nw2vec import utils
 
 
 def _layer_csr_adj(out_nodes, adj, neighbour_samples):
@@ -49,7 +50,7 @@ def mask_indices(indices, size):
 def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
     layers_crops = {}
     model_dag = dag.model_dag(model)
-    gc_dag = dag.subdag(model_dag, lambda n: isinstance(n, layers.GC))
+    gc_dag = dag.subdag_GC(model_dag)
 
     for layer in reversed(list(nx.topological_sort(gc_dag))):
         # Get the nodes required by our children layers, which are the ones we will output for
@@ -63,7 +64,7 @@ def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
                                       for child in children])
 
         # Get the corresponding csr_adj for this layer, and record the necessary nodes for
-        # the layer (i.e. neigbours of `out_nodes`, and `out_nodes` themselves)
+        # the layer (i.e. neighbours of `out_nodes`, and `out_nodes` themselves)
         csr_adj = _layer_csr_adj(out_nodes, adj, neighbour_samples=neighbour_samples)
         layers_crops[layer.name] = {'csr_adj': csr_adj,
                                     'out_nodes': out_nodes,
@@ -82,51 +83,108 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
     # Reduce the global adjacency matrix to only those nodes
     reqadj = adj[required_nodes, :][:, required_nodes]
     # Pre-compute conversion of node ids in `adj` to ids in `reqadj`
-    global_to_sub = {node: i for i, node in enumerate(required_nodes)}
+    global_to_req = {node: i for i, node in enumerate(required_nodes)}
 
     # Create the reqadjs to be fed to each layer
     feeds = {}
     for name, crop in layers_crops.items():
-        row_ind_reqadj = [global_to_sub[row] for row in crop['csr_adj'][0]]
-        col_ind_reqadj = [global_to_sub[col] for col in crop['csr_adj'][1]]
-        layer_reqadj_mask = np.array(scipy.sparse.csr_matrix((np.ones(len(row_ind_reqadj)),
-                                                              (row_ind_reqadj, col_ind_reqadj)),
-                                                             shape=reqadj.shape).todense())
+        row_ind_reqadj = [global_to_req[row] for row in crop['csr_adj'][0]]
+        col_ind_reqadj = [global_to_req[col] for col in crop['csr_adj'][1]]
+        layer_reqadj_mask = np.zeros(reqadj.shape)
+        layer_reqadj_mask[row_ind_reqadj, col_ind_reqadj] = 1
         feeds[name + '_adj'] = reqadj * layer_reqadj_mask
 
-        out_nodes_reqadj = set([global_to_sub[out_node] for out_node in crop['out_nodes']])
+        out_nodes_reqadj = set([global_to_req[out_node] for out_node in crop['out_nodes']])
         feeds[name + '_output_mask'] = mask_indices(out_nodes_reqadj, reqadj.shape[0])
 
     return required_nodes, feeds
 
 
-def batches(model, adj, final_batch_size, neighbour_samples=None):
+def _collect_maxed_connected_component(g, node, max_size, exclude_nodes, collected):
+    assert node not in collected
+
+    collected.add(node)
+    if len(collected.difference(exclude_nodes)) > max_size:
+        # The nodes collected in the component minus `exclude_nodes` are more than the limit, tell
+        # caller we maxed out so that it does not continue collecting.
+        return True
+
+    for neighbour in g.neighbors(node):
+        if neighbour in collected:
+            continue
+
+        if _collect_maxed_connected_component(g, neighbour, max_size, exclude_nodes, collected):
+            return True
+
+    return False
+
+
+def filtered_connected_component_or_none(g, node, max_size, exclude_nodes):
+    # Return the set of nodes making up the connected component containing `node` and excluding
+    # `exclude_nodes`, up to `max_size` (included), or `None` if the component minus the excluded
+    # nodes is bigger than `max_size`.
+    collected = set()
+    maxed = _collect_maxed_connected_component(g, node, max_size, exclude_nodes, collected)
+    return None if maxed else collected.difference(exclude_nodes)
+
+
+def distinct_random_walk(g, max_walk_length, exclude_nodes):
+    seed = random.sample(set(g.nodes).difference(exclude_nodes), 1)[0]
+    seed_filtered_component = filtered_connected_component_or_none(g, seed, max_walk_length,
+                                                                   exclude_nodes)
+    if seed_filtered_component is not None:
+        # This connected component minus the already-collected nodes has `<= max_walk_length`
+        # unique nodes, so the walk would span it all.
+        return seed_filtered_component
+
+    current_node = seed
+    walk_nodes = set([current_node])
+    # We know this walk will stop eventually because this component minus `exclude_nodes` is
+    # larger than `max_walk_length`.
+    while len(walk_nodes) < max_walk_length:
+        current_node = random.sample(list(g.neighbors(current_node)), 1)[0]
+        if current_node not in exclude_nodes.union(walk_nodes):
+            walk_nodes.add(current_node)
+
+    assert len(walk_nodes) == max_walk_length
+    return walk_nodes
+
+
+def jumpy_distinct_random_walk(g, max_size, max_walk_length):
+    if len(g.nodes) <= max_size:
+        # Our jumpy random walk would span all of `g`. Take a shortcut.
+        return set(g.nodes)
+
+    collected = set()
+    while len(collected) < max_size:
+        current_max_walk_length = min(max_walk_length, max_size - len(collected))
+        walk_nodes = distinct_random_walk(g, current_max_walk_length, collected)
+        collected.update(walk_nodes)
+
+    assert len(collected) == max_size
+    return collected
+
+
+def jumpy_walks(adj, batch_size, max_walk_length):
     # Check the adjacency matrix is:
-    # - an ndarray
-    # - undirected
-    # - unweighted
-    # - with no diagonal elements
+    # ... an ndarray...
     assert isinstance(adj, np.ndarray)
-    n_nodes = adj.shape[0]
+    # ... undirected...
     assert (adj.T == adj).all()
+    # ... unweighted...
     assert ((adj == 0) | (adj == 1)).all()
+    # ... with no diagonal elements.
     assert np.trace(adj) == 0
 
-    # Shuffle the node indices, to group-iterate through them
-    order = np.arange(n_nodes)
-    np.random.shuffle(order)
+    g = nx.from_numpy_array(adj)
+    while len(g.nodes) > 0:
+        sample = jumpy_distinct_random_walk(g, batch_size, max_walk_length)
+        yield sample
+        g.remove_nodes_from(sample)
 
-    for final_nodes in utils.grouper(order, final_batch_size):
-        # Prepare `final_nodes`
-        final_nodes = set(final_nodes)
-        try:
-            # Remove `None`s coming from `utils.grouper()` not having
-            # enough elements to finish the last group
-            final_nodes.remove(None)
-        except KeyError:
-            # No `None`s in `final_nodes`
-            pass
 
+def epoch_batches(model, adj, batch_size, max_walk_length, neighbour_samples=None):
+    for final_nodes in jumpy_walks(adj, batch_size, max_walk_length):
         required_nodes, feeds = _compute_batch(model, adj, final_nodes,
                                                neighbour_samples=neighbour_samples)
         yield required_nodes, np.array(sorted(final_nodes)), feeds
