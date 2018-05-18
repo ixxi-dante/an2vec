@@ -1,2 +1,8 @@
 karate/karate.edgelist.npz
 karate/karate.emb
+
+# Real-world medium-sized test datasets
+BlogCatalog-dataset/
+Flickr-dataset/
+YouTube-dataset/
+malariaDBLaNetworks2013/
