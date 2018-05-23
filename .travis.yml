@@ -1,4 +1,3 @@
-sudo: required
 language: python
 python:
   # We don't use Travis' Python as we use Anaconda, but this keeps us organised
