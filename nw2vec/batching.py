@@ -1,10 +1,8 @@
 import random
 
 import numpy as np
-import scipy.sparse
 import networkx as nx
 
-from nw2vec import layers
 from nw2vec import dag
 
 
@@ -15,6 +13,7 @@ def _layer_csr_adj(out_nodes, adj, neighbour_samples):
     # out_nodes should be provided as a set
     assert isinstance(out_nodes, set)
     out_nodes = np.array(sorted(out_nodes))
+    assert out_nodes[0] >= 0
 
     # Get the neighbours of the out nodes
     row_ind, col_ind = np.where(adj[out_nodes, :] > 0)  # TODO: memoize
