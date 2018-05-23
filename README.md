@@ -13,6 +13,8 @@ rustup toolchain install nightly
 rustup override set nightly
 ```
 
+Second, run `./setup-datasets.sh` to set up the test datasets in the `data/` folder.
+
 Next, using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 
 ### GPU-enabled computations on `grunch`
@@ -42,19 +44,23 @@ If, however, you want to play with the Twitter data, read on.
 Data folders
 ------------
 
-The `data/` folder contains pointers to all the data we process and the outputs of processing:
+After running `./setup-datasets.sh`, the `data/` folder contains pointers to all the data we process and the outputs of processing:
 
 ```
 data
-├── karate           # Test network
-├── sosweet-raw      # Raw Twitter data
-│     -> /datastore/complexnet/twitter/data
-├── sosweet-network  # Files encoding the network(s) of users and its embedding(s)
-│     -> /datastore/complexnet/nw2vec/sosweet-network
-├── sosweet-text     # Files encoding the text of tweets
-│     -> /datastore/complexnet/nw2vec/sosweet-text
-└── sosweet-w2v      # Files encoding the word2vec embeddings of words from tweets
-      -> /datastore/complexnet/nw2vec/sosweet-w2v
+├── karate                   # Test networks
+├── malariaDBLaNetworks2013  #
+├── BlogCatalog-dataset      #
+├── Flickr-dataset           #
+├── YouTube-dataset          #
+├── sosweet-raw              # Raw Twitter data
+│     -> /warehouse/COMPLEXNET/TWITTER/data
+├── sosweet-network          # Files encoding the network(s) of users and its embedding(s)
+│     -> /warehouse/COMPLEXNET/nw2vec/sosweet-network
+├── sosweet-text             # Files encoding the text of tweets
+│     -> /warehouse/COMPLEXNET/nw2vec/sosweet-text
+└── sosweet-w2v              # Files encoding the word2vec embeddings of words from tweets
+      -> /warehouse/COMPLEXNET/nw2vec/sosweet-w2v
 ```
 
 To set these up, and assuming you have access to the raw Twitter data in `data/sosweet-raw`:

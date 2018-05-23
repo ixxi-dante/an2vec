@@ -212,6 +212,8 @@ dependencies:
     - setuptools-rust==0.9.1
     - setuptools-scm==2.0.0
     - smmap2==2.0.3
+    - snakeviz==0.4.2
+    - vprof==0.37.4
     - werkzeug==0.14.1
     - "https://anaconda.org/intel/tensorflow/1.6.0/download/tensorflow-1.6.0-cp36-cp36m-linux_x86_64.whl"
     - "git+https://github.com/ixxi-dante/keras@b50534bd55151c72782ecc630e21bb2e4d9a68d7#egg=keras"
