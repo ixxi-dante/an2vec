@@ -7,6 +7,8 @@ use rayon::prelude::*;
 use pyo3::prelude::*;
 use regex::Regex;
 
+use pyo3::py::modinit as pymodinit;
+
 fn split(string: &str, sep: &Regex) -> Vec<String> {
     sep.split(string).map(|part| part.to_string()).collect::<Vec<_>>()
 }
@@ -34,7 +36,7 @@ fn array_split(strings: &[String], sep: &str, parallel: bool)
     Ok(splits)
 }
 
-#[py::modinit(_rust_utils)]
+#[pymodinit(_rust_utils)]
 fn init_mod(py: Python, m: &PyModule) -> PyResult<()> {
 
     #[pyfn(m, "array_split", parallel= "true")]
