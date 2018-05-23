@@ -6,6 +6,10 @@ python:
 git:
   depth: 1
 
+addons:
+  apt:
+    update: true
+
 before_install:
   # Install Rust nightly
   - export CARGO_HOME="$HOME/cargo"
