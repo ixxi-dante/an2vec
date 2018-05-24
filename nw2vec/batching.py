@@ -64,7 +64,7 @@ def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
 
         # Get the corresponding csr_adj for this layer, and record the necessary nodes for
         # the layer (i.e. neighbours of `out_nodes`, and `out_nodes` themselves)
-        csr_adj = _layer_csr_adj(out_nodes, adj, neighbour_samples=neighbour_samples)
+        csr_adj = _layer_csr_adj(out_nodes, adj, neighbour_samples)
         layers_crops[layer.name] = {'csr_adj': csr_adj,
                                     'out_nodes': out_nodes,
                                     'in_nodes': set().union(out_nodes, csr_adj[1])}
