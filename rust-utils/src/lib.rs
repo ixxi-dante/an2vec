@@ -1,4 +1,4 @@
-#![feature(proc_macro, specialization, pattern)]
+#![feature(proc_macro, specialization)]
 extern crate pyo3;
 extern crate rayon;
 extern crate regex;
