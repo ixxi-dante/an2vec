@@ -32,4 +32,4 @@ install:
   - conda env create -f environment.lock.yml
   - source activate base36
 
-script: pytest
+script: pytest -v
