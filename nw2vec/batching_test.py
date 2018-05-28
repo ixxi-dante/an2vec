@@ -430,6 +430,30 @@ def test_jumpy_walks():
     assert len(walks) == 3
 
 
-@pytest.mark.skip(reason='TODO')
-def test_epoch_batches():
-    pass
+def test_epoch_batches(model_depth2):
+    # Our test data
+    adj = np.array([[0, 1, 0, 0, 0],
+                    [1, 0, 1, 0, 0],
+                    [0, 1, 0, 1, 0],
+                    [0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 0]])
+
+    # Works well with good arguments, no sampling
+    batches = list(batching.epoch_batches(model_depth2, adj, 2, 2))
+    assert len(batches) == 3
+    required_nodes, final_nodes, feeds = batches[0]
+    assert_array_equal(final_nodes, sorted(final_nodes))
+    assert len(final_nodes) == 2
+    assert set(feeds.keys()) == set(['layer1a_adj', 'layer1a_output_mask',
+                                     'layer1b_adj', 'layer1b_output_mask',
+                                     'layer2_adj', 'layer2_output_mask'])
+
+    # Works well with good arguments, with sampling
+    batches = list(batching.epoch_batches(model_depth2, adj, 2, 2, neighbour_samples=1))
+    assert len(batches) == 3
+    required_nodes, final_nodes, feeds = batches[0]
+    assert_array_equal(final_nodes, sorted(final_nodes))
+    assert len(final_nodes) == 2
+    assert set(feeds.keys()) == set(['layer1a_adj', 'layer1a_output_mask',
+                                     'layer1b_adj', 'layer1b_output_mask',
+                                     'layer2_adj', 'layer2_output_mask'])
