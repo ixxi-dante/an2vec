@@ -348,9 +348,30 @@ def test_filtered_connected_component_or_none():
     assert batching.filtered_connected_component_or_none(g, 5, 0, set([4])) is None
 
 
-@pytest.mark.skip(reason='TODO')
 def test_distinct_random_walk():
-    pass
+    # Our test data
+    adj = np.array([[1, 1, 0, 0],
+                    [1, 1, 1, 0],
+                    [0, 1, 1, 1],
+                    [0, 0, 1, 1]])
+    g = nx.from_numpy_array(adj)
+
+    # Gets the entire connected component if the randow walk is long enough, no exclusions
+    assert batching.distinct_random_walk(g, 4, set()) == set([0, 1, 2, 3])
+
+    # Gets the entire connected component if the randow walk is long enough, with exclusions,
+    # walking across a separating set of excluded nodes if necessary
+    assert batching.distinct_random_walk(g, 4, set([2])) == set([0, 1, 3])
+
+    # Gets a subset of the connected component, no exclusions
+    walk = batching.distinct_random_walk(g, 3, set())
+    assert len(walk) == 3
+    assert walk.issubset([0, 1, 2, 3])
+
+    # Gets a subset of the connected component, with exclusions
+    walk = batching.distinct_random_walk(g, 2, set([2]))
+    assert len(walk) == 2
+    assert walk.issubset([0, 1, 3])
 
 
 @pytest.mark.skip(reason='TODO')
