@@ -403,9 +403,31 @@ def test_jumpy_distinct_random_walk():
             left_overs == set([4, 5]))
 
 
-@pytest.mark.skip(reason='TODO')
 def test_jumpy_walks():
-    pass
+    # Rejects a non-ndarray numpy matrix
+    with pytest.raises(AssertionError):
+        list(batching.jumpy_walks((np.array(np.ones((5, 5)) - np.eye(5))).tolist(), 3, 2))
+    # Rejects a directed graph
+    with pytest.raises(AssertionError):
+        list(batching.jumpy_walks(np.array([[0, 1],
+                                            [0, 0]]), 3, 2))
+    # Rejects a weighted graph
+    with pytest.raises(AssertionError):
+        list(batching.jumpy_walks(np.array([[0, 2],
+                                            [2, 0]]), 3, 2))
+    # Rejects a graph with self-connections
+    with pytest.raises(AssertionError):
+        list(batching.jumpy_walks(np.array([[1, 1],
+                                            [1, 0]]), 3, 2))
+
+    # Yields the right number of walks to span the whole graph
+    adj = np.array([[0, 1, 0, 0, 0],
+                    [1, 0, 1, 0, 0],
+                    [0, 1, 0, 1, 0],
+                    [0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 0]])
+    walks = list(batching.jumpy_walks(adj, 2, 2))
+    assert len(walks) == 3
 
 
 @pytest.mark.skip(reason='TODO')
