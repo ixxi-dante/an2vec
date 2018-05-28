@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 from numpy.testing import assert_array_equal
+from scipy import sparse
 import networkx as nx
 import keras
 
@@ -10,16 +11,16 @@ from nw2vec import batching
 
 def test__layer_csr_adj():
     # Our test data
-    adj = np.array([[0, 1, 0, 0, 1],
-                    [1, 0, 1, 1, 0],
-                    [0, 0, 1, 0, 0],
-                    [1, 1, 0, 0, 0],
-                    [0, 0, 0, 1, 1]])
+    adj = sparse.csr_matrix(np.array([[0, 1, 0, 0, 1],
+                                      [1, 0, 1, 1, 0],
+                                      [0, 0, 1, 0, 0],
+                                      [1, 1, 0, 0, 0],
+                                      [0, 0, 0, 1, 1]]))
 
     # Works with good arguments and no sampling
     row_ind, col_ind = batching._layer_csr_adj(set([1, 2]), adj, None)
     assert_array_equal(row_ind, [1, 1, 1, 2])
-    assert_array_equal(col_ind, [0, 2, 3, 2])
+    assert_array_equal(col_ind, [3, 2, 0, 2])
 
     # Works with good arguments and sampling
     row_ind, col_ind = batching._layer_csr_adj(set([1, 2]), adj, 2)
@@ -83,6 +84,7 @@ def model_depth2():
                             + layer2_placeholders),
                     outputs=layer2)
 
+
 @pytest.fixture
 def model_depth3():
     layer_input = keras.layers.Input(shape=(40,), name='layer_input')
@@ -105,12 +107,12 @@ def model_depth3():
 
 def test__collect_layers_crops(model_depth3):
     # Our test data
-    adj = np.array([[0, 1, 0, 0, 0, 0],
-                    [0, 0, 1, 0, 0, 0],
-                    [0, 0, 0, 1, 0, 0],
-                    [1, 0, 1, 0, 1, 0],
-                    [0, 0, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 0, 0]])
+    adj = sparse.csr_matrix(np.array([[0, 1, 0, 0, 0, 0],
+                                      [0, 0, 1, 0, 0, 0],
+                                      [0, 0, 0, 1, 0, 0],
+                                      [1, 0, 1, 0, 1, 0],
+                                      [0, 0, 0, 0, 0, 1],
+                                      [1, 0, 0, 0, 0, 0]]))
 
     # Works well with good arguments and no sampling
     crops = batching._collect_layers_crops(model_depth3, adj, set([1, 2]), None)
@@ -119,15 +121,15 @@ def test__collect_layers_crops(model_depth3):
     crop1b = crops['layer1b']
     crop2 = crops['layer2']
     # Layer 0
-    assert_array_equal(crop0['csr_adj'], ([0, 1, 2, 3, 3, 3, 4], [1, 2, 3, 0, 2, 4, 5]))
+    assert_array_equal(crop0['csr_adj'], ([0, 1, 2, 3, 3, 3, 4], [1, 2, 3, 4, 2, 0, 5]))
     assert crop0['in_nodes'] == set([0, 1, 2, 3, 4, 5])
     assert crop0['out_nodes'] == set([0, 1, 2, 3, 4])
     # Layer 1a
-    assert_array_equal(crop1a['csr_adj'], ([1, 2, 3, 3, 3], [2, 3, 0, 2, 4]))
+    assert_array_equal(crop1a['csr_adj'], ([1, 2, 3, 3, 3], [2, 3, 4, 2, 0]))
     assert crop1a['in_nodes'] == set([0, 1, 2, 3, 4])
     assert crop1a['out_nodes'] == set([1, 2, 3])
     # Layer 1b
-    assert_array_equal(crop1b['csr_adj'], ([1, 2, 3, 3, 3], [2, 3, 0, 2, 4]))
+    assert_array_equal(crop1b['csr_adj'], ([1, 2, 3, 3, 3], [2, 3, 4, 2, 0]))
     assert crop1b['in_nodes'] == set([0, 1, 2, 3, 4])
     assert crop1b['out_nodes'] == set([1, 2, 3])
     # Layer 2
@@ -187,12 +189,12 @@ def test__collect_layers_crops(model_depth3):
 
 def test__compute_batch(model_depth2):
     # Our test data
-    adj = np.array([[0, 1, 0, 0, 0, 0],
-                    [0, 0, 1, 0, 0, 0],
-                    [0, 0, 0, 1, 0, 0],
-                    [1, 0, 1, 0, 1, 0],
-                    [0, 0, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 0, 0]])
+    adj = sparse.csr_matrix(np.array([[0, 1, 0, 0, 0, 0],
+                                      [0, 0, 1, 0, 0, 0],
+                                      [0, 0, 0, 1, 0, 0],
+                                      [1, 0, 1, 0, 1, 0],
+                                      [0, 0, 0, 0, 0, 1],
+                                      [1, 0, 0, 0, 0, 0]]))
 
     # Works well with good arguments and no sampling
     required_nodes, feeds = batching._compute_batch(model_depth2, adj, set([1, 2]), None)
@@ -201,21 +203,21 @@ def test__compute_batch(model_depth2):
                                      'layer1b_adj', 'layer1b_output_mask',
                                      'layer2_adj', 'layer2_output_mask'])
     # Layer 1a
-    assert_array_equal(feeds['layer1a_adj'], [[0, 0, 0, 0, 0],
-                                              [0, 0, 1, 0, 0],
-                                              [0, 0, 0, 1, 0],
-                                              [1, 0, 1, 0, 1],
-                                              [0, 0, 0, 0, 0]])
+    assert_array_equal(feeds['layer1a_adj'].toarray(), [[0, 0, 0, 0, 0],
+                                                        [0, 0, 1, 0, 0],
+                                                        [0, 0, 0, 1, 0],
+                                                        [1, 0, 1, 0, 1],
+                                                        [0, 0, 0, 0, 0]])
     assert_array_equal(feeds['layer1a_output_mask'], [0, 1, 1, 1, 0])
     # Layer 1b
     assert_array_equal(feeds['layer1b_adj'], feeds['layer1a_adj'])
     assert_array_equal(feeds['layer1b_output_mask'], feeds['layer1a_output_mask'])
     # Layer 2
-    assert_array_equal(feeds['layer2_adj'], [[0, 0, 0, 0, 0],
-                                             [0, 0, 1, 0, 0],
-                                             [0, 0, 0, 1, 0],
-                                             [0, 0, 0, 0, 0],
-                                             [0, 0, 0, 0, 0]])
+    assert_array_equal(feeds['layer2_adj'].toarray(), [[0, 0, 0, 0, 0],
+                                                       [0, 0, 1, 0, 0],
+                                                       [0, 0, 0, 1, 0],
+                                                       [0, 0, 0, 0, 0],
+                                                       [0, 0, 0, 0, 0]])
     assert_array_equal(feeds['layer2_output_mask'], [0, 1, 1, 0, 0])
 
     # No test with sampling as it will become hellish and non-maintainable
@@ -236,12 +238,12 @@ def test__compute_batch(model_depth2):
 
 def test__collect_maxed_connected_component():
     # Our test data
-    adj = np.array([[1, 1, 1, 0, 0, 0],
-                    [1, 1, 0, 0, 0, 0],
-                    [1, 0, 1, 0, 0, 0],
-                    [0, 0, 0, 1, 0, 0],
-                    [0, 0, 0, 0, 1, 1],
-                    [0, 0, 0, 0, 1, 0]])
+    adj = sparse.csr_matrix(np.array([[1, 1, 1, 0, 0, 0],
+                                      [1, 1, 0, 0, 0, 0],
+                                      [1, 0, 1, 0, 0, 0],
+                                      [0, 0, 0, 1, 0, 0],
+                                      [0, 0, 0, 0, 1, 1],
+                                      [0, 0, 0, 0, 1, 0]]))
     g = nx.from_numpy_array(adj)
 
     # Works well with good arguments, not maxing out, no exclusions
@@ -307,12 +309,12 @@ def test__collect_maxed_connected_component():
 
 def test_filtered_connected_component_or_none():
     # Our test data
-    adj = np.array([[1, 1, 1, 0, 0, 0],
-                    [1, 1, 0, 0, 0, 0],
-                    [1, 0, 1, 0, 0, 0],
-                    [0, 0, 0, 1, 0, 0],
-                    [0, 0, 0, 0, 1, 1],
-                    [0, 0, 0, 0, 1, 0]])
+    adj = sparse.csr_matrix(np.array([[1, 1, 1, 0, 0, 0],
+                                      [1, 1, 0, 0, 0, 0],
+                                      [1, 0, 1, 0, 0, 0],
+                                      [0, 0, 0, 1, 0, 0],
+                                      [0, 0, 0, 0, 1, 1],
+                                      [0, 0, 0, 0, 1, 0]]))
     g = nx.from_numpy_array(adj)
 
     # Works well with good arguments, not maxing out, no exclusions
@@ -350,10 +352,10 @@ def test_filtered_connected_component_or_none():
 
 def test_distinct_random_walk():
     # Our test data
-    adj = np.array([[1, 1, 0, 0],
-                    [1, 1, 1, 0],
-                    [0, 1, 1, 1],
-                    [0, 0, 1, 1]])
+    adj = sparse.csr_matrix(np.array([[1, 1, 0, 0],
+                                      [1, 1, 1, 0],
+                                      [0, 1, 1, 1],
+                                      [0, 0, 1, 1]]))
     g = nx.from_numpy_array(adj)
 
     # Gets the entire connected component if the randow walk is long enough, no exclusions
@@ -376,12 +378,12 @@ def test_distinct_random_walk():
 
 def test_jumpy_distinct_random_walk():
     # Our test data
-    adj = np.array([[1, 1, 0, 0, 0, 0],
-                    [1, 1, 1, 0, 0, 0],
-                    [0, 1, 1, 1, 0, 0],
-                    [0, 0, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 1, 1],
-                    [0, 0, 0, 0, 1, 1]])
+    adj = sparse.csr_matrix(np.array([[1, 1, 0, 0, 0, 0],
+                                      [1, 1, 1, 0, 0, 0],
+                                      [0, 1, 1, 1, 0, 0],
+                                      [0, 0, 1, 1, 0, 0],
+                                      [0, 0, 0, 0, 1, 1],
+                                      [0, 0, 0, 0, 1, 1]]))
     g = nx.from_numpy_array(adj)
 
     # A `max_size` larger than the network returns the whole network
@@ -406,37 +408,40 @@ def test_jumpy_distinct_random_walk():
 def test_jumpy_walks():
     # Rejects a non-ndarray numpy matrix
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks((np.array(np.ones((5, 5)) - np.eye(5))).tolist(), 3, 2))
+        list(batching.jumpy_walks(np.ones((5, 5)) - np.eye(5), 3, 2))
     # Rejects a directed graph
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(np.array([[0, 1],
-                                            [0, 0]]), 3, 2))
+        list(batching.jumpy_walks(sparse.csr_matrix(np.array([[0, 1],
+                                                              [0, 0]])),
+                                  3, 2))
     # Rejects a weighted graph
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(np.array([[0, 2],
-                                            [2, 0]]), 3, 2))
+        list(batching.jumpy_walks(sparse.csr_matrix(np.array([[0, 2],
+                                                              [2, 0]])),
+                                  3, 2))
     # Rejects a graph with self-connections
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(np.array([[1, 1],
-                                            [1, 0]]), 3, 2))
+        list(batching.jumpy_walks(sparse.csr_matrix(np.array([[1, 1],
+                                                              [1, 0]])),
+                                  3, 2))
 
     # Yields the right number of walks to span the whole graph
-    adj = np.array([[0, 1, 0, 0, 0],
-                    [1, 0, 1, 0, 0],
-                    [0, 1, 0, 1, 0],
-                    [0, 0, 1, 0, 0],
-                    [0, 0, 0, 0, 0]])
+    adj = sparse.csr_matrix(np.array([[0, 1, 0, 0, 0],
+                                      [1, 0, 1, 0, 0],
+                                      [0, 1, 0, 1, 0],
+                                      [0, 0, 1, 0, 0],
+                                      [0, 0, 0, 0, 0]]))
     walks = list(batching.jumpy_walks(adj, 2, 2))
     assert len(walks) == 3
 
 
 def test_epoch_batches(model_depth2):
     # Our test data
-    adj = np.array([[0, 1, 0, 0, 0],
-                    [1, 0, 1, 0, 0],
-                    [0, 1, 0, 1, 0],
-                    [0, 0, 1, 0, 0],
-                    [0, 0, 0, 0, 0]])
+    adj = sparse.csr_matrix(np.array([[0, 1, 0, 0, 0],
+                                      [1, 0, 1, 0, 0],
+                                      [0, 1, 0, 1, 0],
+                                      [0, 0, 1, 0, 0],
+                                      [0, 0, 0, 0, 0]]))
 
     # Works well with good arguments, no sampling
     batches = list(batching.epoch_batches(model_depth2, adj, 2, 2))
