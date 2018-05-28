@@ -7,26 +7,22 @@ from nw2vec import dag
 
 
 def _layer_csr_adj(out_nodes, adj, neighbour_samples):
-    # TODO:
-    # - take adj as a csr_matrix
-
     # out_nodes should be provided as a set
     assert isinstance(out_nodes, set)
     out_nodes = np.array(sorted(out_nodes))
     assert out_nodes[0] >= 0
 
-    # Get the neighbours of the out nodes
-    row_ind, col_ind = np.where(adj[out_nodes, :] > 0)  # TODO: memoize
-    row_ind = out_nodes[row_ind]  # both `row_ind` and `col_ind` must index into `adj`
-
     if neighbour_samples is None:
+        # Get all the neighbours of the out nodes
+        row_ind, col_ind = adj[out_nodes, :].nonzero()
+        row_ind = out_nodes[row_ind]  # both `row_ind` and `col_ind` must index into `adj`
         return (row_ind, col_ind)
 
     # Sample each node's row
     sampled_row_ind = []
     sampled_col_ind = []
     for out_node in out_nodes:
-        neighbours = col_ind[row_ind == out_node]  # TODO: memoize
+        neighbours = adj[out_node, :].nonzero()[1]
         if len(neighbours) == 0:
             # If there are no neighours, nothing to sample from, so we're done for this node
             continue
