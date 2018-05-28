@@ -1,12 +1,15 @@
 import random
 
 import numpy as np
+from scipy import sparse
 import networkx as nx
 
 from nw2vec import dag
 
 
 def _layer_csr_adj(out_nodes, adj, neighbour_samples):
+    assert isinstance(adj, sparse.csr_matrix)
+
     # out_nodes should be provided as a set
     assert isinstance(out_nodes, set)
     out_nodes = np.array(sorted(out_nodes))
@@ -43,6 +46,8 @@ def mask_indices(indices, size):
 
 
 def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
+    assert isinstance(adj, sparse.csr_matrix)
+
     layers_crops = {}
     model_dag = dag.model_dag(model)
     gc_dag = dag.subdag_GC(model_dag)
@@ -69,6 +74,8 @@ def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
 
 
 def _compute_batch(model, adj, final_nodes, neighbour_samples):
+    assert isinstance(adj, sparse.csr_matrix)
+
     # Collect the crop dicts for each layer
     layers_crops = _collect_layers_crops(model, adj, final_nodes, neighbour_samples)
 
@@ -85,9 +92,10 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
     for name, crop in layers_crops.items():
         row_ind_reqadj = [global_to_req[row] for row in crop['csr_adj'][0]]
         col_ind_reqadj = [global_to_req[col] for col in crop['csr_adj'][1]]
-        layer_reqadj_mask = np.zeros(reqadj.shape)
-        layer_reqadj_mask[row_ind_reqadj, col_ind_reqadj] = 1
-        feeds[name + '_adj'] = reqadj * layer_reqadj_mask
+        layer_reqadj_mask = sparse.csr_matrix((np.ones(len(row_ind_reqadj)),
+                                               (row_ind_reqadj, col_ind_reqadj)),
+                                              shape=reqadj.shape)
+        feeds[name + '_adj'] = reqadj.multiply(layer_reqadj_mask)
 
         out_nodes_reqadj = set([global_to_req[out_node] for out_node in crop['out_nodes']])
         feeds[name + '_output_mask'] = mask_indices(out_nodes_reqadj, reqadj.shape[0])
@@ -163,15 +171,28 @@ def jumpy_distinct_random_walk(g, max_size, max_walk_length):
 def jumpy_walks(adj, batch_size, max_walk_length):
     # Check the adjacency matrix is:
     # ... an ndarray...
-    assert isinstance(adj, np.ndarray)
+    assert isinstance(adj, (np.ndarray, sparse.csr_matrix))
     # ... undirected...
-    assert (adj.T == adj).all()
+    assert (adj.T != adj).sum() == 0
     # ... unweighted...
-    assert ((adj == 0) | (adj == 1)).all()
+    if isinstance(adj, np.ndarray):
+        assert ((adj == 0) | (adj == 1)).all()
+    else:
+        assert ((adj.data == 0) | (adj.data == 1)).all()
     # ... with no diagonal elements.
-    assert np.trace(adj) == 0
+    if isinstance(adj, np.ndarray):
+        assert np.trace(adj) == 0
+    else:
+        # FIXME: this look very inefficient...
+        assert adj.multiply(sparse.csr_matrix((np.ones(adj.shape[0]),
+                                               (np.arange(adj.shape[0]), np.arange(adj.shape[0]))),
+                                              shape=adj.shape)).sum() == 0
 
-    g = nx.from_numpy_array(adj)
+    # FIXME: see if we can't use scipy.sparse.csgraph methods and forego using networkx altogether
+    if isinstance(adj, np.ndarray):
+        g = nx.from_numpy_array(adj)
+    else:
+        g = nx.from_scipy_sparse_matrix(adj)
     while len(g.nodes) > 0:
         sample = jumpy_distinct_random_walk(g, batch_size, max_walk_length)
         yield sample

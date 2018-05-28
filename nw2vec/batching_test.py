@@ -49,6 +49,10 @@ def test__layer_csr_adj():
     with pytest.raises(AssertionError):
         batching._layer_csr_adj([1], adj, None)
 
+    # Takes only a csr_matrix for `adj`
+    with pytest.raises(AssertionError):
+        batching._layer_csr_adj(set([1, 2]), adj.toarray(), None)
+
 
 def test_mask_indices():
     # Works with good arguments
@@ -186,6 +190,10 @@ def test__collect_layers_crops(model_depth3):
     with pytest.raises(AssertionError):
         batching._collect_layers_crops(model_depth3, adj, set([-6]), None)
 
+    # Takes only a csr_matrix for `adj`
+    with pytest.raises(AssertionError):
+        batching._collect_layers_crops(model_depth3, adj.toarray(), set([1, 2]), None)
+
 
 def test__compute_batch(model_depth2):
     # Our test data
@@ -210,7 +218,7 @@ def test__compute_batch(model_depth2):
                                                         [0, 0, 0, 0, 0]])
     assert_array_equal(feeds['layer1a_output_mask'], [0, 1, 1, 1, 0])
     # Layer 1b
-    assert_array_equal(feeds['layer1b_adj'], feeds['layer1a_adj'])
+    assert_array_equal(feeds['layer1b_adj'].toarray(), feeds['layer1a_adj'].toarray())
     assert_array_equal(feeds['layer1b_output_mask'], feeds['layer1a_output_mask'])
     # Layer 2
     assert_array_equal(feeds['layer2_adj'].toarray(), [[0, 0, 0, 0, 0],
@@ -238,12 +246,12 @@ def test__compute_batch(model_depth2):
 
 def test__collect_maxed_connected_component():
     # Our test data
-    adj = sparse.csr_matrix(np.array([[1, 1, 1, 0, 0, 0],
-                                      [1, 1, 0, 0, 0, 0],
-                                      [1, 0, 1, 0, 0, 0],
-                                      [0, 0, 0, 1, 0, 0],
-                                      [0, 0, 0, 0, 1, 1],
-                                      [0, 0, 0, 0, 1, 0]]))
+    adj = np.array([[1, 1, 1, 0, 0, 0],
+                    [1, 1, 0, 0, 0, 0],
+                    [1, 0, 1, 0, 0, 0],
+                    [0, 0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 1, 1],
+                    [0, 0, 0, 0, 1, 0]])
     g = nx.from_numpy_array(adj)
 
     # Works well with good arguments, not maxing out, no exclusions
@@ -309,12 +317,12 @@ def test__collect_maxed_connected_component():
 
 def test_filtered_connected_component_or_none():
     # Our test data
-    adj = sparse.csr_matrix(np.array([[1, 1, 1, 0, 0, 0],
-                                      [1, 1, 0, 0, 0, 0],
-                                      [1, 0, 1, 0, 0, 0],
-                                      [0, 0, 0, 1, 0, 0],
-                                      [0, 0, 0, 0, 1, 1],
-                                      [0, 0, 0, 0, 1, 0]]))
+    adj = np.array([[1, 1, 1, 0, 0, 0],
+                    [1, 1, 0, 0, 0, 0],
+                    [1, 0, 1, 0, 0, 0],
+                    [0, 0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 1, 1],
+                    [0, 0, 0, 0, 1, 0]])
     g = nx.from_numpy_array(adj)
 
     # Works well with good arguments, not maxing out, no exclusions
@@ -352,10 +360,10 @@ def test_filtered_connected_component_or_none():
 
 def test_distinct_random_walk():
     # Our test data
-    adj = sparse.csr_matrix(np.array([[1, 1, 0, 0],
-                                      [1, 1, 1, 0],
-                                      [0, 1, 1, 1],
-                                      [0, 0, 1, 1]]))
+    adj = np.array([[1, 1, 0, 0],
+                    [1, 1, 1, 0],
+                    [0, 1, 1, 1],
+                    [0, 0, 1, 1]])
     g = nx.from_numpy_array(adj)
 
     # Gets the entire connected component if the randow walk is long enough, no exclusions
@@ -378,12 +386,12 @@ def test_distinct_random_walk():
 
 def test_jumpy_distinct_random_walk():
     # Our test data
-    adj = sparse.csr_matrix(np.array([[1, 1, 0, 0, 0, 0],
-                                      [1, 1, 1, 0, 0, 0],
-                                      [0, 1, 1, 1, 0, 0],
-                                      [0, 0, 1, 1, 0, 0],
-                                      [0, 0, 0, 0, 1, 1],
-                                      [0, 0, 0, 0, 1, 1]]))
+    adj = np.array([[1, 1, 0, 0, 0, 0],
+                    [1, 1, 1, 0, 0, 0],
+                    [0, 1, 1, 1, 0, 0],
+                    [0, 0, 1, 1, 0, 0],
+                    [0, 0, 0, 0, 1, 1],
+                    [0, 0, 0, 0, 1, 1]])
     g = nx.from_numpy_array(adj)
 
     # A `max_size` larger than the network returns the whole network
@@ -408,29 +416,26 @@ def test_jumpy_distinct_random_walk():
 def test_jumpy_walks():
     # Rejects a non-ndarray numpy matrix
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(np.ones((5, 5)) - np.eye(5), 3, 2))
+        list(batching.jumpy_walks((np.ones((5, 5)) - np.eye(5)).tolist(), 3, 2))
     # Rejects a directed graph
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(sparse.csr_matrix(np.array([[0, 1],
-                                                              [0, 0]])),
-                                  3, 2))
+        list(batching.jumpy_walks(np.array([[0, 1],
+                                            [0, 0]]), 3, 2))
     # Rejects a weighted graph
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(sparse.csr_matrix(np.array([[0, 2],
-                                                              [2, 0]])),
-                                  3, 2))
+        list(batching.jumpy_walks(np.array([[0, 2],
+                                            [2, 0]]), 3, 2))
     # Rejects a graph with self-connections
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(sparse.csr_matrix(np.array([[1, 1],
-                                                              [1, 0]])),
-                                  3, 2))
+        list(batching.jumpy_walks(np.array([[1, 1],
+                                            [1, 0]]), 3, 2))
 
     # Yields the right number of walks to span the whole graph
-    adj = sparse.csr_matrix(np.array([[0, 1, 0, 0, 0],
-                                      [1, 0, 1, 0, 0],
-                                      [0, 1, 0, 1, 0],
-                                      [0, 0, 1, 0, 0],
-                                      [0, 0, 0, 0, 0]]))
+    adj = np.array([[0, 1, 0, 0, 0],
+                    [1, 0, 1, 0, 0],
+                    [0, 1, 0, 1, 0],
+                    [0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 0]])
     walks = list(batching.jumpy_walks(adj, 2, 2))
     assert len(walks) == 3
 
