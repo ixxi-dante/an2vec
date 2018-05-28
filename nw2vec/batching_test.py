@@ -286,7 +286,7 @@ def test__collect_maxed_connected_component():
     assert not batching._collect_maxed_connected_component(g, 3, 0, set([3]), collected)
     assert collected == set([3])
     collected = set()
-    assert not batching._collect_maxed_connected_component(g, 4, 1, set([5]), collected)
+    assert not batching._collect_maxed_connected_component(g, 4, 1, set([4]), collected)
     assert collected == set([4, 5])
     collected = set()
     assert not batching._collect_maxed_connected_component(g, 5, 2, set([0, 1, 2]), collected)
@@ -305,9 +305,47 @@ def test__collect_maxed_connected_component():
         batching._collect_maxed_connected_component(g, 2, None, set(), set([2]))
 
 
-@pytest.mark.skip(reason='TODO')
 def test_filtered_connected_component_or_none():
-    pass
+    # Our test data
+    adj = np.array([[1, 1, 1, 0, 0, 0],
+                    [1, 1, 0, 0, 0, 0],
+                    [1, 0, 1, 0, 0, 0],
+                    [0, 0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 1, 1],
+                    [0, 0, 0, 0, 1, 0]])
+    g = nx.from_numpy_array(adj)
+
+    # Works well with good arguments, not maxing out, no exclusions
+    assert batching.filtered_connected_component_or_none(g, 0, 3, set()) == set([0, 1, 2])
+    assert batching.filtered_connected_component_or_none(g, 1, 4, set()) == set([0, 1, 2])
+    assert batching.filtered_connected_component_or_none(g, 2, 5, set()) == set([0, 1, 2])
+    assert batching.filtered_connected_component_or_none(g, 3, 5, set()) == set([3])
+    assert batching.filtered_connected_component_or_none(g, 4, 2, set()) == set([4, 5])
+    assert batching.filtered_connected_component_or_none(g, 5, 3, set()) == set([4, 5])
+
+    # Works well with good arguments, maxing out, no exclusions
+    assert batching.filtered_connected_component_or_none(g, 0, 2, set()) is None
+    assert batching.filtered_connected_component_or_none(g, 1, 2, set()) is None
+    assert batching.filtered_connected_component_or_none(g, 2, 2, set()) is None
+    assert batching.filtered_connected_component_or_none(g, 3, 0, set()) is None
+    assert batching.filtered_connected_component_or_none(g, 4, 1, set()) is None
+    assert batching.filtered_connected_component_or_none(g, 5, 1, set()) is None
+
+    # Works well with good arguments, not maxing out, with exclusions
+    assert batching.filtered_connected_component_or_none(g, 0, 2, set([1])) == set([0, 2])
+    assert batching.filtered_connected_component_or_none(g, 1, 3, set([0])) == set([1, 2])
+    assert batching.filtered_connected_component_or_none(g, 2, 4, set([0])) == set([1, 2])
+    assert batching.filtered_connected_component_or_none(g, 3, 0, set([3])) == set()
+    assert batching.filtered_connected_component_or_none(g, 4, 1, set([4])) == set([5])
+    assert batching.filtered_connected_component_or_none(g, 5, 2, set([0, 1, 2])) == set([4, 5])
+
+    # Works well with good arguments, maxing out, with exclusions
+    assert batching.filtered_connected_component_or_none(g, 0, 1, set([1])) is None
+    assert batching.filtered_connected_component_or_none(g, 1, 2, set([4, 5])) is None
+    assert batching.filtered_connected_component_or_none(g, 2, 1, set([0])) is None
+    assert batching.filtered_connected_component_or_none(g, 3, 0, set([4])) is None
+    assert batching.filtered_connected_component_or_none(g, 4, 1, set([3])) is None
+    assert batching.filtered_connected_component_or_none(g, 5, 0, set([4])) is None
 
 
 @pytest.mark.skip(reason='TODO')
