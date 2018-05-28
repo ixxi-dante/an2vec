@@ -374,9 +374,33 @@ def test_distinct_random_walk():
     assert walk.issubset([0, 1, 3])
 
 
-@pytest.mark.skip(reason='TODO')
 def test_jumpy_distinct_random_walk():
-    pass
+    # Our test data
+    adj = np.array([[1, 1, 0, 0, 0, 0],
+                    [1, 1, 1, 0, 0, 0],
+                    [0, 1, 1, 1, 0, 0],
+                    [0, 0, 1, 1, 0, 0],
+                    [0, 0, 0, 0, 1, 1],
+                    [0, 0, 0, 0, 1, 1]])
+    g = nx.from_numpy_array(adj)
+
+    # A `max_size` larger than the network returns the whole network
+    assert batching.jumpy_distinct_random_walk(g, 10, 3) == set(range(adj.shape[0]))
+
+    # A `max_size` smaller than the network returns a set of size `max_size`
+    assert len(batching.jumpy_distinct_random_walk(g, 4, 3)) == 4
+
+    # If all connected components are multiples of `max_walk_length`, the left-overs
+    # are also multiples of `max_walk_length`
+    walk = batching.jumpy_distinct_random_walk(g, 4, 2)
+    left_overs = set(range(adj.shape[0])).difference(walk)
+    assert (left_overs == set([0, 1]) or
+            left_overs == set([0, 2]) or
+            left_overs == set([0, 3]) or
+            left_overs == set([1, 2]) or
+            left_overs == set([1, 3]) or
+            left_overs == set([2, 3]) or
+            left_overs == set([4, 5]))
 
 
 @pytest.mark.skip(reason='TODO')
