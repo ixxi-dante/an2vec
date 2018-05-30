@@ -9,7 +9,7 @@ def csr_eye(n):
 
 class CSGraph:
 
-    _REMOVED_LABEL = -1
+    _REMOVED_LABEL = np.iinfo(np.int).max
 
     def __init__(self, adj):
         # Check the adjacency matrix is:
@@ -74,7 +74,7 @@ class CSGraph:
         self._adj = self._adj[kept_ids, :][:, kept_ids]
 
     def neighbors(self, label):
-        assert self.labels_exist([label]).all()
+        assert label >= 0 and label < self._initial_shape[0]
         idx = self._labels2ids[label]
         neighbor_ids = self._adj.indices[self._adj.indptr[idx]:self._adj.indptr[idx + 1]]
         return self._ids2labels[neighbor_ids]
