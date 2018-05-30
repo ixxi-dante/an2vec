@@ -105,14 +105,14 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
     # Reduce the global adjacency matrix to only those nodes
     reqadj = adj[required_nodes, :][:, required_nodes]
     # Pre-compute conversion of node ids in `adj` to ids in `reqadj`
-    global_to_req = {node: i for i, node in enumerate(required_nodes)}
+    global_to_req = np.zeros(adj.shape[0], dtype=int)
+    global_to_req[required_nodes] = np.arange(len(required_nodes))
 
     # Create the reqadjs to be fed to each layer
     feeds = {}
     for name, crop in layers_crops.items():
-        # TODO: use arrays
-        row_ind_reqadj = [global_to_req[row] for row in crop['csr_adj'][0]]
-        col_ind_reqadj = [global_to_req[col] for col in crop['csr_adj'][1]]
+        row_ind_reqadj = global_to_req[crop['csr_adj'][0]]
+        col_ind_reqadj = global_to_req[crop['csr_adj'][1]]
         layer_reqadj_mask = sparse.csr_matrix((np.ones(len(row_ind_reqadj)),
                                                (row_ind_reqadj, col_ind_reqadj)),
                                               shape=reqadj.shape)
