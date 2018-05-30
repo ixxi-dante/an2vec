@@ -25,7 +25,6 @@ dependencies:
 - networkx
 - nltk
 - notebook
-- numba
 - numpy
 - pandas
 - pip
