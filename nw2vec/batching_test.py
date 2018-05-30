@@ -367,19 +367,19 @@ def test_distinct_random_walk():
     g = nx.from_numpy_array(adj)
 
     # Gets the entire connected component if the randow walk is long enough, no exclusions
-    assert batching.distinct_random_walk(g, 4, set()) == set([0, 1, 2, 3])
+    assert batching.distinct_random_walk(g, 4, set(), set([0, 1, 2, 3])) == set([0, 1, 2, 3])
 
     # Gets the entire connected component if the randow walk is long enough, with exclusions,
     # walking across a separating set of excluded nodes if necessary
-    assert batching.distinct_random_walk(g, 4, set([2])) == set([0, 1, 3])
+    assert batching.distinct_random_walk(g, 4, set([2]), set([0, 1, 3])) == set([0, 1, 3])
 
     # Gets a subset of the connected component, no exclusions
-    walk = batching.distinct_random_walk(g, 3, set())
+    walk = batching.distinct_random_walk(g, 3, set(), set([0, 1, 2, 3]))
     assert len(walk) == 3
     assert walk.issubset([0, 1, 2, 3])
 
     # Gets a subset of the connected component, with exclusions
-    walk = batching.distinct_random_walk(g, 2, set([2]))
+    walk = batching.distinct_random_walk(g, 2, set([2]), set([0, 1, 3]))
     assert len(walk) == 2
     assert walk.issubset([0, 1, 3])
 
