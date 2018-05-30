@@ -4,6 +4,7 @@ channels:
 - defaults
 dependencies:
 - python=3.6
+- cached-property
 - click
 - cython
 - dask
@@ -24,6 +25,7 @@ dependencies:
 - networkx
 - nltk
 - notebook
+- numba
 - numpy
 - pandas
 - pip

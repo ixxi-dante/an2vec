@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import sparse
 import joblib
+from cached_property import cached_property
 
 
 def csr_eye(n):
@@ -73,17 +74,23 @@ class CSGraph:
         # Reduce the adjacency matrix
         self._adj = self._adj[kept_ids, :][:, kept_ids]
 
+        # Invalidate cached properties
+        if 'nodes' in self.__dict__:
+            del self.__dict__['nodes']
+        if 'adj' in self.__dict__:
+            del self.__dict__['adj']
+
     def neighbors(self, label):
         assert label >= 0 and label < self._initial_shape[0]
         idx = self._labels2ids[label]
         neighbor_ids = self._adj.indices[self._adj.indptr[idx]:self._adj.indptr[idx + 1]]
         return self._ids2labels[neighbor_ids]
 
-    @property
+    @cached_property
     def nodes(self):
         return self._ids2labels
 
-    @property
+    @cached_property
     def adj(self):
         return self._adj
 

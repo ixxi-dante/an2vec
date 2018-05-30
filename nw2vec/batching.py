@@ -16,22 +16,43 @@ def _layer_csr_adj(out_nodes, adj, neighbour_samples):
     out_nodes = np.array(sorted(out_nodes))
     assert out_nodes[0] >= 0
 
-    # Explore (and possibly sample) each node's row
-    row_ind = []
-    col_ind = []
-    for out_node in out_nodes:
-        neighbours = adj.indices[adj.indptr[out_node]:adj.indptr[out_node + 1]]
-        if len(neighbours) == 0:
-            # If there are no neighours, nothing to sample from, so we're done for this node
-            continue
-
-        if neighbour_samples is None:
-            row_ind.extend([out_node] * len(neighbours))
+    if neighbour_samples is None:
+        # Explore and add each node's row
+        row_ind = []
+        col_ind = []
+        for out_node in out_nodes:
+            neighbours = adj.indices[adj.indptr[out_node]:adj.indptr[out_node + 1]]
+            n_neighbours = len(neighbours)
+            if n_neighbours == 0:
+                # If there are no neighours, nothing to sample from, so we're done for this node
+                continue
+            row_ind.extend([out_node] * n_neighbours)
             col_ind.extend(neighbours)
-        else:
-            sample_size = np.min([len(neighbours), neighbour_samples])
-            row_ind.extend([out_node] * sample_size)
-            col_ind.extend(np.random.choice(neighbours, size=sample_size, replace=False))
+
+    else:
+        # `neighbour_samples` is not None, we can preallocate then cut back what we didn't fill
+        max_samples = len(out_nodes) * neighbour_samples
+        row_ind = np.zeros(max_samples, dtype=int)
+        col_ind = np.zeros(max_samples, dtype=int)
+        n_collected = 0
+
+        for out_node in out_nodes:
+            neighbours = adj.indices[adj.indptr[out_node]:adj.indptr[out_node + 1]]
+            n_neighbours = len(neighbours)
+            if n_neighbours == 0:
+                # If there are no neighours, nothing to sample from, so we're done for this node
+                continue
+
+            sample_size = min(n_neighbours, neighbour_samples)
+            row_ind[n_collected:n_collected + sample_size] = out_node
+            # This is faster than using `np.random.choice(replace=False)`
+            np.random.shuffle(neighbours)
+            col_ind[n_collected:n_collected + sample_size] = neighbours[:sample_size]
+            n_collected += sample_size
+
+        # Chop off what we didn't use
+        row_ind = row_ind[:n_collected]
+        col_ind = col_ind[:n_collected]
 
     return (row_ind, col_ind)
 
@@ -89,6 +110,7 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
     # Create the reqadjs to be fed to each layer
     feeds = {}
     for name, crop in layers_crops.items():
+        # TODO: use arrays
         row_ind_reqadj = [global_to_req[row] for row in crop['csr_adj'][0]]
         col_ind_reqadj = [global_to_req[col] for col in crop['csr_adj'][1]]
         layer_reqadj_mask = sparse.csr_matrix((np.ones(len(row_ind_reqadj)),
