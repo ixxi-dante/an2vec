@@ -1,42 +1,60 @@
 import random
 
 import numpy as np
-import scipy.sparse
+from scipy import sparse
 import networkx as nx
 
-from nw2vec import layers
 from nw2vec import dag
+from nw2vec import graph
 
 
 def _layer_csr_adj(out_nodes, adj, neighbour_samples):
-    # TODO:
-    # - take adj as a csr_matrix
+    assert isinstance(adj, sparse.csr_matrix)
 
     # out_nodes should be provided as a set
     assert isinstance(out_nodes, set)
     out_nodes = np.array(sorted(out_nodes))
-
-    # Get the neighbours of the out nodes
-    row_ind, col_ind = np.where(adj[out_nodes, :] > 0)  # TODO: memoize
-    row_ind = out_nodes[row_ind]  # both `row_ind` and `col_ind` must index into `adj`
+    assert out_nodes[0] >= 0
 
     if neighbour_samples is None:
-        return (row_ind, col_ind)
+        # Explore and add each node's row
+        row_ind = []
+        col_ind = []
+        for out_node in out_nodes:
+            neighbours = adj.indices[adj.indptr[out_node]:adj.indptr[out_node + 1]]
+            n_neighbours = len(neighbours)
+            if n_neighbours == 0:
+                # If there are no neighours, nothing to sample from, so we're done for this node
+                continue
+            row_ind.extend([out_node] * n_neighbours)
+            col_ind.extend(neighbours)
 
-    # Sample each node's row
-    sampled_row_ind = []
-    sampled_col_ind = []
-    for out_node in out_nodes:
-        neighbours = col_ind[row_ind == out_node]  # TODO: memoize
-        if len(neighbours) == 0:
-            # If there are no neighours, nothing to sample from, so we're done for this node
-            continue
+    else:
+        # `neighbour_samples` is not None, we can preallocate then cut back what we didn't fill
+        max_samples = len(out_nodes) * neighbour_samples
+        row_ind = np.zeros(max_samples, dtype=int)
+        col_ind = np.zeros(max_samples, dtype=int)
+        n_collected = 0
 
-        sample_size = np.min([len(neighbours), neighbour_samples])
-        sampled_row_ind.extend([out_node] * sample_size)
-        sampled_col_ind.extend(np.random.choice(neighbours, size=sample_size, replace=False))
+        for out_node in out_nodes:
+            neighbours = adj.indices[adj.indptr[out_node]:adj.indptr[out_node + 1]]
+            n_neighbours = len(neighbours)
+            if n_neighbours == 0:
+                # If there are no neighours, nothing to sample from, so we're done for this node
+                continue
 
-    return (sampled_row_ind, sampled_col_ind)
+            sample_size = min(n_neighbours, neighbour_samples)
+            row_ind[n_collected:n_collected + sample_size] = out_node
+            # This is faster than using `np.random.choice(replace=False)`
+            np.random.shuffle(neighbours)
+            col_ind[n_collected:n_collected + sample_size] = neighbours[:sample_size]
+            n_collected += sample_size
+
+        # Chop off what we didn't use
+        row_ind = row_ind[:n_collected]
+        col_ind = col_ind[:n_collected]
+
+    return (row_ind, col_ind)
 
 
 def mask_indices(indices, size):
@@ -48,6 +66,8 @@ def mask_indices(indices, size):
 
 
 def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
+    assert isinstance(adj, sparse.csr_matrix)
+
     layers_crops = {}
     model_dag = dag.model_dag(model)
     gc_dag = dag.subdag_GC(model_dag)
@@ -65,7 +85,7 @@ def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
 
         # Get the corresponding csr_adj for this layer, and record the necessary nodes for
         # the layer (i.e. neighbours of `out_nodes`, and `out_nodes` themselves)
-        csr_adj = _layer_csr_adj(out_nodes, adj, neighbour_samples=neighbour_samples)
+        csr_adj = _layer_csr_adj(out_nodes, adj, neighbour_samples)
         layers_crops[layer.name] = {'csr_adj': csr_adj,
                                     'out_nodes': out_nodes,
                                     'in_nodes': set().union(out_nodes, csr_adj[1])}
@@ -74,6 +94,8 @@ def _collect_layers_crops(model, adj, final_nodes, neighbour_samples):
 
 
 def _compute_batch(model, adj, final_nodes, neighbour_samples):
+    assert isinstance(adj, sparse.csr_matrix)
+
     # Collect the crop dicts for each layer
     layers_crops = _collect_layers_crops(model, adj, final_nodes, neighbour_samples)
 
@@ -83,16 +105,18 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
     # Reduce the global adjacency matrix to only those nodes
     reqadj = adj[required_nodes, :][:, required_nodes]
     # Pre-compute conversion of node ids in `adj` to ids in `reqadj`
-    global_to_req = {node: i for i, node in enumerate(required_nodes)}
+    global_to_req = np.zeros(adj.shape[0], dtype=int)
+    global_to_req[required_nodes] = np.arange(len(required_nodes))
 
     # Create the reqadjs to be fed to each layer
     feeds = {}
     for name, crop in layers_crops.items():
-        row_ind_reqadj = [global_to_req[row] for row in crop['csr_adj'][0]]
-        col_ind_reqadj = [global_to_req[col] for col in crop['csr_adj'][1]]
-        layer_reqadj_mask = np.zeros(reqadj.shape)
-        layer_reqadj_mask[row_ind_reqadj, col_ind_reqadj] = 1
-        feeds[name + '_adj'] = reqadj * layer_reqadj_mask
+        row_ind_reqadj = global_to_req[crop['csr_adj'][0]]
+        col_ind_reqadj = global_to_req[crop['csr_adj'][1]]
+        layer_reqadj_mask = sparse.csr_matrix((np.ones(len(row_ind_reqadj)),
+                                               (row_ind_reqadj, col_ind_reqadj)),
+                                              shape=reqadj.shape)
+        feeds[name + '_adj'] = reqadj.multiply(layer_reqadj_mask)
 
         out_nodes_reqadj = set([global_to_req[out_node] for out_node in crop['out_nodes']])
         feeds[name + '_output_mask'] = mask_indices(out_nodes_reqadj, reqadj.shape[0])
@@ -128,8 +152,8 @@ def filtered_connected_component_or_none(g, node, max_size, exclude_nodes):
     return None if maxed else collected.difference(exclude_nodes)
 
 
-def distinct_random_walk(g, max_walk_length, exclude_nodes):
-    seed = random.sample(set(g.nodes).difference(exclude_nodes), 1)[0]
+def distinct_random_walk(g, max_walk_length, exclude_nodes, seed_candidates):
+    seed = random.sample(seed_candidates, 1)[0]
     seed_filtered_component = filtered_connected_component_or_none(g, seed, max_walk_length,
                                                                    exclude_nodes)
     if seed_filtered_component is not None:
@@ -156,27 +180,23 @@ def jumpy_distinct_random_walk(g, max_size, max_walk_length):
         return set(g.nodes)
 
     collected = set()
+    remaining = set(g.nodes)
     while len(collected) < max_size:
         current_max_walk_length = min(max_walk_length, max_size - len(collected))
-        walk_nodes = distinct_random_walk(g, current_max_walk_length, collected)
+        walk_nodes = distinct_random_walk(g, current_max_walk_length, collected, remaining)
         collected.update(walk_nodes)
+        remaining.difference_update(walk_nodes)
 
     assert len(collected) == max_size
     return collected
 
 
 def jumpy_walks(adj, batch_size, max_walk_length):
-    # Check the adjacency matrix is:
-    # ... an ndarray...
-    assert isinstance(adj, np.ndarray)
-    # ... undirected...
-    assert (adj.T == adj).all()
-    # ... unweighted...
-    assert ((adj == 0) | (adj == 1)).all()
-    # ... with no diagonal elements.
-    assert np.trace(adj) == 0
+    if not isinstance(adj, sparse.csr_matrix):
+        assert isinstance(adj, np.ndarray)
+        adj = sparse.csr_matrix(adj)
 
-    g = nx.from_numpy_array(adj)
+    g = graph.CSGraph(adj)
     while len(g.nodes) > 0:
         sample = jumpy_distinct_random_walk(g, batch_size, max_walk_length)
         yield sample

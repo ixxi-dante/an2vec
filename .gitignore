@@ -1,6 +1,11 @@
 # Standard Python stuff
 __pycache__/
+
+# IPython/Jupyter stuff
 .ipynb_checkpoints/
+
+# Pytest stuff
+.pytest_cache/
 
 # Packaging left-overs
 /nw2vec.egg-info/
