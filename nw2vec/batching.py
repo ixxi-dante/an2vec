@@ -2,10 +2,10 @@ import random
 
 import numpy as np
 from scipy import sparse
-import joblib
 import networkx as nx
 
 from nw2vec import dag
+from nw2vec import graph
 
 
 def _layer_csr_adj(out_nodes, adj, neighbour_samples):
@@ -169,52 +169,17 @@ def jumpy_distinct_random_walk(g, max_size, max_walk_length):
     return collected
 
 
-def _get_nx_from_ndarray_or_spmatrix():
-    cache = {}
-
-    def _nx_from_ndarray_or_spmatrix(adj):
-        key = joblib.hash(adj)
-        if key not in cache:
-            # Check the adjacency matrix is:
-            # ... an ndarray...
-            if not isinstance(adj, (np.ndarray, sparse.csr_matrix)):
-                raise ValueError('Unsupported adjacency matrix type: {}'.format(type(adj)))
-            # ... undirected...
-            assert (adj.T != adj).sum() == 0
-            if isinstance(adj, np.ndarray):
-                # ... unweighted...
-                assert ((adj == 0) | (adj == 1)).all()
-                # ... with no diagonal elements.
-                assert np.trace(adj) == 0
-                # ... and create the graph.
-                cache[key] = nx.from_numpy_array(adj)
-            else:
-                # ... unweighted...
-                assert ((adj.data == 0) | (adj.data == 1)).all()
-                # ... with no diagonal elements.
-                csr_eye = sparse.csr_matrix((np.ones(adj.shape[0]),
-                                             (np.arange(adj.shape[0]), np.arange(adj.shape[0]))),
-                                            shape=adj.shape)
-                assert adj.multiply(csr_eye).sum() == 0
-                # ... and create the graph.
-                cache[key] = nx.from_scipy_sparse_matrix(adj)
-        return cache[key]
-
-    return _nx_from_ndarray_or_spmatrix
-
-
-nx_from_ndarray_or_spmatrix = _get_nx_from_ndarray_or_spmatrix()
-
-
 def jumpy_walks(adj, batch_size, max_walk_length):
-    # FIXME: see if we can't use scipy.sparse.csgraph methods and forego using networkx altogether
-    g = nx_from_ndarray_or_spmatrix(adj)
-    nodes = set(g.nodes)
-    while len(nodes) > 0:
-        g = g.subgraph(nodes)
+    # TODO: memoize and copy
+    if not isinstance(adj, sparse.csr_matrix):
+        assert isinstance(adj, np.ndarray)
+        adj = sparse.csr_matrix(adj)
+
+    g = graph.CSGraph(adj)
+    while len(g.nodes) > 0:
         sample = jumpy_distinct_random_walk(g, batch_size, max_walk_length)
         yield sample
-        nodes.difference_update(sample)
+        g.remove_nodes_from(sample)
 
 
 def epoch_batches(model, adj, batch_size, max_walk_length, neighbour_samples=None):
