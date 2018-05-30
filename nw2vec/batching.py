@@ -152,8 +152,8 @@ def filtered_connected_component_or_none(g, node, max_size, exclude_nodes):
     return None if maxed else collected.difference(exclude_nodes)
 
 
-def distinct_random_walk(g, max_walk_length, exclude_nodes):
-    seed = random.sample(set(g.nodes).difference(exclude_nodes), 1)[0]
+def distinct_random_walk(g, max_walk_length, exclude_nodes, seed_candidates):
+    seed = random.sample(seed_candidates, 1)[0]
     seed_filtered_component = filtered_connected_component_or_none(g, seed, max_walk_length,
                                                                    exclude_nodes)
     if seed_filtered_component is not None:
@@ -180,10 +180,12 @@ def jumpy_distinct_random_walk(g, max_size, max_walk_length):
         return set(g.nodes)
 
     collected = set()
+    remaining = set(g.nodes)
     while len(collected) < max_size:
         current_max_walk_length = min(max_walk_length, max_size - len(collected))
-        walk_nodes = distinct_random_walk(g, current_max_walk_length, collected)
+        walk_nodes = distinct_random_walk(g, current_max_walk_length, collected, remaining)
         collected.update(walk_nodes)
+        remaining.difference_update(walk_nodes)
 
     assert len(collected) == max_size
     return collected
