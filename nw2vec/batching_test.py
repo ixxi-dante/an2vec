@@ -415,7 +415,7 @@ def test_jumpy_distinct_random_walk():
 
 def test_jumpy_walks():
     # Rejects a non-ndarray numpy matrix
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         list(batching.jumpy_walks((np.ones((5, 5)) - np.eye(5)).tolist(), 3, 2))
     # Rejects a directed graph
     with pytest.raises(AssertionError):
@@ -436,6 +436,10 @@ def test_jumpy_walks():
                     [0, 1, 0, 1, 0],
                     [0, 0, 1, 0, 0],
                     [0, 0, 0, 0, 0]])
+    walks = list(batching.jumpy_walks(adj, 2, 2))
+    assert len(walks) == 3
+
+    # Still works when run a second time, relying on memoization
     walks = list(batching.jumpy_walks(adj, 2, 2))
     assert len(walks) == 3
 
