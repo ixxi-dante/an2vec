@@ -20,7 +20,7 @@ def test__layer_csr_adj():
     # Works with good arguments and no sampling
     row_ind, col_ind = batching._layer_csr_adj(set([1, 2]), adj, None)
     assert_array_equal(row_ind, [1, 1, 1, 2])
-    assert_array_equal(col_ind, [3, 2, 0, 2])
+    assert_array_equal(col_ind, [0, 2, 3, 2])
 
     # Works with good arguments and sampling
     row_ind, col_ind = batching._layer_csr_adj(set([1, 2]), adj, 2)
@@ -125,15 +125,15 @@ def test__collect_layers_crops(model_depth3):
     crop1b = crops['layer1b']
     crop2 = crops['layer2']
     # Layer 0
-    assert_array_equal(crop0['csr_adj'], ([0, 1, 2, 3, 3, 3, 4], [1, 2, 3, 4, 2, 0, 5]))
+    assert_array_equal(crop0['csr_adj'], ([0, 1, 2, 3, 3, 3, 4], [1, 2, 3, 0, 2, 4, 5]))
     assert crop0['in_nodes'] == set([0, 1, 2, 3, 4, 5])
     assert crop0['out_nodes'] == set([0, 1, 2, 3, 4])
     # Layer 1a
-    assert_array_equal(crop1a['csr_adj'], ([1, 2, 3, 3, 3], [2, 3, 4, 2, 0]))
+    assert_array_equal(crop1a['csr_adj'], ([1, 2, 3, 3, 3], [2, 3, 0, 2, 4]))
     assert crop1a['in_nodes'] == set([0, 1, 2, 3, 4])
     assert crop1a['out_nodes'] == set([1, 2, 3])
     # Layer 1b
-    assert_array_equal(crop1b['csr_adj'], ([1, 2, 3, 3, 3], [2, 3, 4, 2, 0]))
+    assert_array_equal(crop1b['csr_adj'], ([1, 2, 3, 3, 3], [2, 3, 0, 2, 4]))
     assert crop1b['in_nodes'] == set([0, 1, 2, 3, 4])
     assert crop1b['out_nodes'] == set([1, 2, 3])
     # Layer 2

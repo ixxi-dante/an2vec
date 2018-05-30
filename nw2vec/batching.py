@@ -16,26 +16,24 @@ def _layer_csr_adj(out_nodes, adj, neighbour_samples):
     out_nodes = np.array(sorted(out_nodes))
     assert out_nodes[0] >= 0
 
-    if neighbour_samples is None:
-        # Get all the neighbours of the out nodes
-        row_ind, col_ind = adj[out_nodes, :].nonzero()
-        row_ind = out_nodes[row_ind]  # both `row_ind` and `col_ind` must index into `adj`
-        return (row_ind, col_ind)
-
-    # Sample each node's row
-    sampled_row_ind = []
-    sampled_col_ind = []
+    # Explore (and possibly sample) each node's row
+    row_ind = []
+    col_ind = []
     for out_node in out_nodes:
-        neighbours = adj[out_node, :].nonzero()[1]
+        neighbours = adj.indices[adj.indptr[out_node]:adj.indptr[out_node + 1]]
         if len(neighbours) == 0:
             # If there are no neighours, nothing to sample from, so we're done for this node
             continue
 
-        sample_size = np.min([len(neighbours), neighbour_samples])
-        sampled_row_ind.extend([out_node] * sample_size)
-        sampled_col_ind.extend(np.random.choice(neighbours, size=sample_size, replace=False))
+        if neighbour_samples is None:
+            row_ind.extend([out_node] * len(neighbours))
+            col_ind.extend(neighbours)
+        else:
+            sample_size = np.min([len(neighbours), neighbour_samples])
+            row_ind.extend([out_node] * sample_size)
+            col_ind.extend(np.random.choice(neighbours, size=sample_size, replace=False))
 
-    return (sampled_row_ind, sampled_col_ind)
+    return (row_ind, col_ind)
 
 
 def mask_indices(indices, size):
