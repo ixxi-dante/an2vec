@@ -170,7 +170,6 @@ def jumpy_distinct_random_walk(g, max_size, max_walk_length):
 
 
 def jumpy_walks(adj, batch_size, max_walk_length):
-    # TODO: memoize and copy
     if not isinstance(adj, sparse.csr_matrix):
         assert isinstance(adj, np.ndarray)
         adj = sparse.csr_matrix(adj)
