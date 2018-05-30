@@ -24,6 +24,7 @@ class CSGraph:
         assert adj.multiply(csr_eye(adj.shape[0])).sum() == 0
 
         self._adj = adj.copy()
+        self._adj.eliminate_zeros()
         self._initial_shape = self._adj.shape
         self._ids2labels = np.arange(adj.shape[0])
         self._labels2ids = np.arange(adj.shape[0])
@@ -75,7 +76,7 @@ class CSGraph:
     def neighbors(self, label):
         assert self.labels_exist([label]).all()
         idx = self._labels2ids[label]
-        neighbor_ids = self._adj[idx, :].nonzero()[1]
+        neighbor_ids = self._adj.indices[self._adj.indptr[idx]:self._adj.indptr[idx + 1]]
         return self._ids2labels[neighbor_ids]
 
     @property
