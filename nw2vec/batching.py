@@ -6,6 +6,7 @@ import networkx as nx
 
 from nw2vec import dag
 from nw2vec import graph
+from nw2vec import utils
 
 
 def _layer_csr_adj(out_nodes, adj, neighbour_samples):
@@ -116,7 +117,11 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
         layer_reqadj_mask = sparse.csr_matrix((np.ones(len(row_ind_reqadj)),
                                                (row_ind_reqadj, col_ind_reqadj)),
                                               shape=reqadj.shape)
-        feeds[name + '_adj'] = reqadj.multiply(layer_reqadj_mask)
+        tensor_indices, tensor_values, tensor_dense_shape = \
+            utils.csr_to_sparse_tensor_parts(reqadj.multiply(layer_reqadj_mask))
+        feeds[name + '_adj/indices'] = tensor_indices
+        feeds[name + '_adj/values'] = tensor_values
+        feeds[name + '_adj/dense_shape'] = tensor_dense_shape
 
         out_nodes_reqadj = set([global_to_req[out_node] for out_node in crop['out_nodes']])
         feeds[name + '_output_mask'] = mask_indices(out_nodes_reqadj, reqadj.shape[0])

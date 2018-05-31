@@ -69,7 +69,7 @@ class GC(keras.layers.Layer):
     def call(self, inputs):
         adj, mask, features = inputs
 
-        A_tilde = adj + tf.eye(tf.shape(adj)[0])
+        A_tilde = tf.sparse_add(adj, tf.eye(tf.shape(adj)[0]))
         D_tilde_out_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=0)))
         D_tilde_in_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=1)))
         A_hat = D_tilde_out_inv_sqrt @ A_tilde @ D_tilde_in_inv_sqrt

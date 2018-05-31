@@ -5,10 +5,35 @@ import itertools
 from keras import backend as K
 import jwalk
 import numpy as np
+from scipy import sparse
 import tensorflow as tf
+import numba
 
 
 logger = logging.getLogger(__name__)
+
+
+def csr_to_sparse_tensor_parts(m):
+    return _csr_to_sparse_tensor_parts(m.indices, m.indptr, m.data, m.shape)
+
+
+def sparse_tensor_parts_to_csr(parts):
+    ind, data, shape = parts
+    return sparse.csr_matrix((data, (ind[:, 0], ind[:, 1])), shape=shape)
+
+
+@numba.jit(nopython=True)
+def _csr_to_sparse_tensor_parts(indices, indptr, data, shape):
+    n_values = len(data)
+    ind = np.zeros((n_values, 2), dtype=np.int32)
+    collected = 0
+    for i in range(shape[0]):
+        cols = indices[indptr[i]:indptr[i + 1]]
+        n_cols = len(cols)
+        ind[collected:collected + n_cols, 0] = i
+        ind[collected:collected + n_cols, 1] = cols
+        collected += n_cols
+    return (ind, data, shape)
 
 
 def inner_repeat(it, n):
