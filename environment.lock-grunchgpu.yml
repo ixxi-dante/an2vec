@@ -19,7 +19,6 @@ dependencies:
   - bzip2=1.0.6=1
   - ca-certificates=2018.4.16=0
   - cached-property=1.4.0=py36_0
-  - certifi=2018.4.16=py36_0
   - cffi=1.11.5=py36_0
   - chardet=3.0.4=py36_0
   - click=6.7=py_1
@@ -197,11 +196,14 @@ dependencies:
   - zlib=1.2.11=h470a237_3
   - boto=2.48.0=py36h6e4cd66_1
   - bz2file=0.98=py36_0
+  - certifi=2018.4.16=py36_0
   - grpcio=1.11.0=py36hf484d3e_0
   - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=7.2.0=hdf63c60_3
   - libgfortran=3.0.0=1
   - libstdcxx-ng=7.2.0=hdf63c60_3
+  - llvmlite=0.23.1=py36hdbcaa40_0
+  - numba=0.38.0=py36h637b7d7_0
   - pip:
     - colorama==0.3.9
     - gitdb2==2.0.3
@@ -223,5 +225,5 @@ dependencies:
     - "git+https://github.com/ixxi-dante/keras@b50534bd55151c72782ecc630e21bb2e4d9a68d7#egg=keras"
     - "git+https://github.com/ixxi-dante/jwalk@fd8d2e83cf5726dfcba96b6ff6991e4cd974d594#egg=jwalk"
     - "--editable=."
-prefix: /home/sl/.conda/envs/base36-grunchgpu
+prefix: /home/slerique/anaconda3/envs/base36-grunchgpu
 
