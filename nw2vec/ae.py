@@ -56,7 +56,13 @@ class Model(keras.Model):
         for feed_layer in feed_layers:
             assert len(feed_layer._inbound_nodes) == 1
             assert len(feed_layer._inbound_nodes[0].input_tensors) == 1
-            feeds_to_tensors[feed_layer.name] = feed_layer._inbound_nodes[0].input_tensors[0].name
+            tensor = feed_layer._inbound_nodes[0].input_tensors[0]
+            if isinstance(tensor, tf.SparseTensor):
+                feeds_to_tensors[feed_layer.name + '/indices'] = tensor.indices.name
+                feeds_to_tensors[feed_layer.name + '/values'] = tensor.values.name
+                feeds_to_tensors[feed_layer.name + '/dense_shape'] = tensor.dense_shape.name
+            else:
+                feeds_to_tensors[feed_layer.name] = tensor.name
 
         return feed_dict, feeds_to_tensors
 
@@ -326,8 +332,8 @@ class Model(keras.Model):
 
 
 def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
-    adj = keras.layers.Input(tensor=tf.placeholder(tf.float32, shape=(None, None),
-                                                   name=name + '_adj'),
+    adj = keras.layers.Input(tensor=tf.sparse_placeholder(tf.float32, shape=(None, None),
+                                                          name=name + '_adj'),
                              name=name + '_adj')
     mask = keras.layers.Input(tensor=tf.placeholder(tf.float32, shape=(None,),
                                                     name=name + '_output_mask'),

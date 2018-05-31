@@ -7,6 +7,7 @@ import keras
 
 from nw2vec import ae
 from nw2vec import batching
+from nw2vec import utils
 
 
 def test__layer_csr_adj():
@@ -195,6 +196,13 @@ def test__collect_layers_crops(model_depth3):
         batching._collect_layers_crops(model_depth3, adj.toarray(), set([1, 2]), None)
 
 
+def adj_feed_toarray(feeds, key):
+    indices = feeds[key + '/indices']
+    values = feeds[key + '/values']
+    dense_shape = feeds[key + '/dense_shape']
+    return utils.sparse_tensor_parts_to_csr((indices, values, dense_shape)).toarray()
+
+
 def test__compute_batch(model_depth2):
     # Our test data
     adj = sparse.csr_matrix(np.array([[0, 1, 0, 0, 0, 0],
@@ -207,25 +215,36 @@ def test__compute_batch(model_depth2):
     # Works well with good arguments and no sampling
     required_nodes, feeds = batching._compute_batch(model_depth2, adj, set([1, 2]), None)
     assert_array_equal(required_nodes, [0, 1, 2, 3, 4])
-    assert set(feeds.keys()) == set(['layer1a_adj', 'layer1a_output_mask',
-                                     'layer1b_adj', 'layer1b_output_mask',
-                                     'layer2_adj', 'layer2_output_mask'])
+    assert set(feeds.keys()) == set(['layer1a_adj/indices',
+                                     'layer1a_adj/values',
+                                     'layer1a_adj/dense_shape',
+                                     'layer1a_output_mask',
+                                     'layer1b_adj/indices',
+                                     'layer1b_adj/values',
+                                     'layer1b_adj/dense_shape',
+                                     'layer1b_output_mask',
+                                     'layer2_adj/indices',
+                                     'layer2_adj/values',
+                                     'layer2_adj/dense_shape',
+                                     'layer2_output_mask'])
     # Layer 1a
-    assert_array_equal(feeds['layer1a_adj'].toarray(), [[0, 0, 0, 0, 0],
-                                                        [0, 0, 1, 0, 0],
-                                                        [0, 0, 0, 1, 0],
-                                                        [1, 0, 1, 0, 1],
-                                                        [0, 0, 0, 0, 0]])
+    assert_array_equal(adj_feed_toarray(feeds, 'layer1a_adj'), [[0, 0, 0, 0, 0],
+                                                                [0, 0, 1, 0, 0],
+                                                                [0, 0, 0, 1, 0],
+                                                                [1, 0, 1, 0, 1],
+                                                                [0, 0, 0, 0, 0]])
     assert_array_equal(feeds['layer1a_output_mask'], [0, 1, 1, 1, 0])
     # Layer 1b
-    assert_array_equal(feeds['layer1b_adj'].toarray(), feeds['layer1a_adj'].toarray())
+    assert_array_equal(feeds['layer1b_adj/indices'], feeds['layer1a_adj/indices'])
+    assert_array_equal(feeds['layer1b_adj/values'], feeds['layer1a_adj/values'])
+    assert_array_equal(feeds['layer1b_adj/dense_shape'], feeds['layer1a_adj/dense_shape'])
     assert_array_equal(feeds['layer1b_output_mask'], feeds['layer1a_output_mask'])
     # Layer 2
-    assert_array_equal(feeds['layer2_adj'].toarray(), [[0, 0, 0, 0, 0],
-                                                       [0, 0, 1, 0, 0],
-                                                       [0, 0, 0, 1, 0],
-                                                       [0, 0, 0, 0, 0],
-                                                       [0, 0, 0, 0, 0]])
+    assert_array_equal(adj_feed_toarray(feeds, 'layer2_adj'), [[0, 0, 0, 0, 0],
+                                                               [0, 0, 1, 0, 0],
+                                                               [0, 0, 0, 1, 0],
+                                                               [0, 0, 0, 0, 0],
+                                                               [0, 0, 0, 0, 0]])
     assert_array_equal(feeds['layer2_output_mask'], [0, 1, 1, 0, 0])
 
     # No test with sampling as it will become hellish and non-maintainable
@@ -458,9 +477,18 @@ def test_epoch_batches(model_depth2):
     required_nodes, final_nodes, feeds = batches[0]
     assert_array_equal(final_nodes, sorted(final_nodes))
     assert len(final_nodes) == 2
-    assert set(feeds.keys()) == set(['layer1a_adj', 'layer1a_output_mask',
-                                     'layer1b_adj', 'layer1b_output_mask',
-                                     'layer2_adj', 'layer2_output_mask'])
+    assert set(feeds.keys()) == set(['layer1a_adj/indices',
+                                     'layer1a_adj/values',
+                                     'layer1a_adj/dense_shape',
+                                     'layer1a_output_mask',
+                                     'layer1b_adj/indices',
+                                     'layer1b_adj/values',
+                                     'layer1b_adj/dense_shape',
+                                     'layer1b_output_mask',
+                                     'layer2_adj/indices',
+                                     'layer2_adj/values',
+                                     'layer2_adj/dense_shape',
+                                     'layer2_output_mask'])
 
     # Works well with good arguments, with sampling
     batches = list(batching.epoch_batches(model_depth2, adj, 2, 2, neighbour_samples=1))
@@ -468,6 +496,15 @@ def test_epoch_batches(model_depth2):
     required_nodes, final_nodes, feeds = batches[0]
     assert_array_equal(final_nodes, sorted(final_nodes))
     assert len(final_nodes) == 2
-    assert set(feeds.keys()) == set(['layer1a_adj', 'layer1a_output_mask',
-                                     'layer1b_adj', 'layer1b_output_mask',
-                                     'layer2_adj', 'layer2_output_mask'])
+    assert set(feeds.keys()) == set(['layer1a_adj/indices',
+                                     'layer1a_adj/values',
+                                     'layer1a_adj/dense_shape',
+                                     'layer1a_output_mask',
+                                     'layer1b_adj/indices',
+                                     'layer1b_adj/values',
+                                     'layer1b_adj/dense_shape',
+                                     'layer1b_output_mask',
+                                     'layer2_adj/indices',
+                                     'layer2_adj/values',
+                                     'layer2_adj/dense_shape',
+                                     'layer2_output_mask'])
