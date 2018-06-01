@@ -367,47 +367,44 @@ def build_q(dims, use_bias=False):
     return q_model, ('Gaussian',)
 
 
-def build_p(dims, use_bias=False):
+def build_p_builder(dims, use_bias=False):
     dim_data, dim_l1, dim_ξ = dims
 
-    p_input = keras.layers.Input(shape=(dim_ξ,), name='p_input')
-    # CANDO: change activation
-    p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
-                                  kernel_regularizer='l2', bias_regularizer='l2',
-                                  name='p_layer1')(p_input)
-    p_adj = layers.Bilinear(0, use_bias=use_bias,
-                            kernel_regularizer='l2', bias_regularizer='l2',
-                            name='p_adj')([p_layer1, p_layer1])
-    p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
-                                    kernel_regularizer='l2', bias_regularizer='l2',
-                                    name='p_v_mu_flat')(p_layer1)
-    p_v_logD_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
-                                       kernel_regularizer='l2', bias_regularizer='l2',
-                                       name='p_v_logD_flat')(p_layer1)
-    p_v_u_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
-                                    kernel_regularizer='l2', bias_regularizer='l2',
-                                    name='p_v_u_flat')(p_layer1)
-    p_v_μlogDu_flat = keras.layers.Concatenate(name='p_v_mulogDu_flat')(
-        [p_v_μ_flat, p_v_logD_flat, p_v_u_flat])
-    p_model = Model(inputs=p_input, outputs=[p_adj, p_v_μlogDu_flat])
+    def p_builder(p_input):
+        # CANDO: change activation
+        p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
+                                      kernel_regularizer='l2', bias_regularizer='l2',
+                                      name='p_layer1')(p_input)
+        p_adj = layers.Bilinear(0, use_bias=use_bias,
+                                kernel_regularizer='l2', bias_regularizer='l2',
+                                name='p_adj')([p_layer1, p_layer1])
+        p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
+                                        kernel_regularizer='l2', bias_regularizer='l2',
+                                        name='p_v_mu_flat')(p_layer1)
+        p_v_logD_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
+                                           kernel_regularizer='l2', bias_regularizer='l2',
+                                           name='p_v_logD_flat')(p_layer1)
+        p_v_u_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
+                                        kernel_regularizer='l2', bias_regularizer='l2',
+                                        name='p_v_u_flat')(p_layer1)
+        p_v_μlogDu_flat = keras.layers.Concatenate(name='p_v_mulogDu_flat')(
+            [p_v_μ_flat, p_v_logD_flat, p_v_u_flat])
+        return ([p_adj, p_v_μlogDu_flat], ('SigmoidBernoulliAdjacency', 'Gaussian'))
 
-    return p_model, ('SigmoidBernoulliAdjacency', 'Gaussian')
+    return p_builder
 
 
-def build_vae(q_model_codecs, p_model_codecs, n_ξ_samples, loss_weights):
+def build_vae(q_model_codecs, p_builder, n_ξ_samples, loss_weights):
     """TODOC"""
     q, q_codecs = q_model_codecs
     assert len(q_codecs) == 1
     q_codec = q_codecs[0]
     del q_codecs
-    p, p_codecs = p_model_codecs
 
     # Wire up the model
     ξ = layers.ParametrisedStochastic(q_codec, n_ξ_samples)(q.output)
-    p_ξ = p(ξ)
-    if not isinstance(p_ξ, list):
-        p_ξ = [p_ξ]
-    model = Model(inputs=q.input, outputs=[q.output] + p_ξ)
+    p_outputs, p_codecs = p_builder(ξ)
+    model = Model(inputs=q.input, outputs=[q.output] + p_outputs)
 
     # Compile the whole thing with losses
     model.compile('adam',  # CANDO: tune parameters
