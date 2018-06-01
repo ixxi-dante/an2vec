@@ -129,12 +129,12 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
     return required_nodes, feeds
 
 
-def _collect_maxed_connected_component(g, node, max_size, exclude_nodes, collected):
+def _collect_maxed_connected_component(g, node, max_size, collected):
     assert node not in collected
 
     collected.add(node)
-    if len(collected.difference(exclude_nodes)) > max_size:
-        # The nodes collected in the component minus `exclude_nodes` are more than the limit, tell
+    if len(collected) > max_size:
+        # The nodes collected in the component are more than the limit, tell
         # caller we maxed out so that it does not continue collecting.
         return True
 
@@ -142,74 +142,57 @@ def _collect_maxed_connected_component(g, node, max_size, exclude_nodes, collect
         if neighbour in collected:
             continue
 
-        if _collect_maxed_connected_component(g, neighbour, max_size, exclude_nodes, collected):
+        if _collect_maxed_connected_component(g, neighbour, max_size, collected):
             return True
 
     return False
 
 
-def filtered_connected_component_or_none(g, node, max_size, exclude_nodes):
-    # Return the set of nodes making up the connected component containing `node` and excluding
-    # `exclude_nodes`, up to `max_size` (included), or `None` if the component minus the excluded
-    # nodes is bigger than `max_size`.
+def connected_component_or_none(g, node, max_size):
+    # Return the set of nodes making up the connected component containing `node`,
+    # up to `max_size` (included), or `None` if the component is bigger than `max_size`.
     collected = set()
-    maxed = _collect_maxed_connected_component(g, node, max_size, exclude_nodes, collected)
-    return None if maxed else collected.difference(exclude_nodes)
+    maxed = _collect_maxed_connected_component(g, node, max_size, collected)
+    return None if maxed else collected
 
 
-def distinct_random_walk(g, max_walk_length, exclude_nodes, seed_candidates):
-    seed = random.sample(seed_candidates, 1)[0]
-    seed_filtered_component = filtered_connected_component_or_none(g, seed, max_walk_length,
-                                                                   exclude_nodes)
-    if seed_filtered_component is not None:
-        # This connected component minus the already-collected nodes has `<= max_walk_length`
-        # unique nodes, so the walk would span it all.
-        return seed_filtered_component
+def distinct_random_walk(g, seed, max_walk_length):
+    seed_component = connected_component_or_none(g, seed, max_walk_length)
+
+    if seed_component is not None:
+        # This connected component has `<= max_walk_length` unique nodes,
+        # so the walk would span it all.
+        return seed_component
 
     current_node = seed
     walk_nodes = set([current_node])
-    # We know this walk will stop eventually because this component minus `exclude_nodes` is
+    # We know this walk will stop eventually because this component is
     # larger than `max_walk_length`.
     while len(walk_nodes) < max_walk_length:
         current_node = random.sample(list(g.neighbors(current_node)), 1)[0]
-        if current_node not in exclude_nodes.union(walk_nodes):
-            walk_nodes.add(current_node)
+        # No-op if current_node was already seen. We just move on to it and sample
+        # from its neighbours in the next iteration.
+        walk_nodes.add(current_node)
 
-    assert len(walk_nodes) == max_walk_length
     return walk_nodes
 
 
-def jumpy_distinct_random_walk(g, max_size, max_walk_length):
-    if len(g.nodes) <= max_size:
-        # Our jumpy random walk would span all of `g`. Take a shortcut.
-        return set(g.nodes)
-
-    collected = set()
-    remaining = set(g.nodes)
-    while len(collected) < max_size:
-        current_max_walk_length = min(max_walk_length, max_size - len(collected))
-        walk_nodes = distinct_random_walk(g, current_max_walk_length, collected, remaining)
-        collected.update(walk_nodes)
-        remaining.difference_update(walk_nodes)
-
-    assert len(collected) == max_size
-    return collected
-
-
-def jumpy_walks(adj, batch_size, max_walk_length):
+def batch_walks(adj, seeds_per_batch, max_walk_length):
     if not isinstance(adj, sparse.csr_matrix):
         assert isinstance(adj, np.ndarray)
         adj = sparse.csr_matrix(adj)
 
     g = graph.CSGraph(adj)
-    while len(g.nodes) > 0:
-        sample = jumpy_distinct_random_walk(g, batch_size, max_walk_length)
-        yield sample
-        g.remove_nodes_from(sample)
+    seeds = g.nodes.copy()
+    np.random.shuffle(seeds)
+
+    for batch_seeds in utils.grouper(seeds, seeds_per_batch):
+        yield set().union(*[distinct_random_walk(g, seed, max_walk_length)
+                            for seed in batch_seeds])
 
 
-def epoch_batches(model, adj, batch_size, max_walk_length, neighbour_samples=None):
-    for final_nodes in jumpy_walks(adj, batch_size, max_walk_length):
+def epoch_batches(model, adj, seeds_per_batch, max_walk_length, neighbour_samples=None):
+    for final_nodes in batch_walks(adj, seeds_per_batch, max_walk_length):
         required_nodes, feeds = _compute_batch(model, adj, final_nodes,
                                                neighbour_samples=neighbour_samples)
         yield required_nodes, np.array(sorted(final_nodes)), feeds
