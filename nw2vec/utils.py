@@ -40,11 +40,15 @@ def inner_repeat(it, n):
     return itertools.chain(*zip(*itertools.tee(it, n)))
 
 
-def grouper(iterable, n, fillvalue=None):
-    """Collect data into fixed-length chunks or blocks"""
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * n
-    return itertools.zip_longest(*args, fillvalue=fillvalue)
+def grouper(iterable, n):
+    it = iter(iterable)
+    while True:
+        chunk = itertools.islice(it, n)
+        try:
+            first = next(chunk)
+        except StopIteration:
+            return
+        yield itertools.chain((first,), chunk)
 
 
 def scale_center(x, norm='l2'):
