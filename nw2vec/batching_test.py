@@ -273,7 +273,7 @@ def test__collect_maxed_connected_component():
                     [0, 0, 0, 0, 1, 0]])
     g = nx.from_numpy_array(adj)
 
-    # Works well with good arguments, not maxing out, no exclusions
+    # Works well with good arguments, not maxing out
     collected = set()
     assert not batching._collect_maxed_connected_component(g, 0, 3, collected)
     assert collected == set([0, 1, 2])
@@ -293,7 +293,7 @@ def test__collect_maxed_connected_component():
     assert not batching._collect_maxed_connected_component(g, 5, 3, collected)
     assert collected == set([4, 5])
 
-    # Works well with good arguments, maxing out, no exclusions
+    # Works well with good arguments, maxing out
     assert batching._collect_maxed_connected_component(g, 0, 2, set())
     assert batching._collect_maxed_connected_component(g, 1, 2, set())
     assert batching._collect_maxed_connected_component(g, 2, 2, set())
@@ -316,7 +316,7 @@ def test_connected_component_or_none():
                     [0, 0, 0, 0, 1, 0]])
     g = nx.from_numpy_array(adj)
 
-    # Works well with good arguments, not maxing out, no exclusions
+    # Works well with good arguments, not maxing out
     assert batching.connected_component_or_none(g, 0, 3) == set([0, 1, 2])
     assert batching.connected_component_or_none(g, 1, 4) == set([0, 1, 2])
     assert batching.connected_component_or_none(g, 2, 5) == set([0, 1, 2])
@@ -324,7 +324,7 @@ def test_connected_component_or_none():
     assert batching.connected_component_or_none(g, 4, 2) == set([4, 5])
     assert batching.connected_component_or_none(g, 5, 3) == set([4, 5])
 
-    # Works well with good arguments, maxing out, no exclusions
+    # Works well with good arguments, maxing out
     assert batching.connected_component_or_none(g, 0, 2) is None
     assert batching.connected_component_or_none(g, 1, 2) is None
     assert batching.connected_component_or_none(g, 2, 2) is None
@@ -341,10 +341,10 @@ def test_distinct_random_walk():
                     [0, 0, 1, 1]])
     g = nx.from_numpy_array(adj)
 
-    # Gets the entire connected component if the randow walk is long enough, no exclusions
+    # Gets the entire connected component if the randow walk is long enough
     assert batching.distinct_random_walk(g, 0, 4) == set([0, 1, 2, 3])
 
-    # Gets a subset of the connected component, no exclusions
+    # Gets a subset of the connected component
     assert batching.distinct_random_walk(g, 0, 3) == set([0, 1, 2])
 
 
