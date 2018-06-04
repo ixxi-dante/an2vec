@@ -275,66 +275,38 @@ def test__collect_maxed_connected_component():
 
     # Works well with good arguments, not maxing out, no exclusions
     collected = set()
-    assert not batching._collect_maxed_connected_component(g, 0, 3, set(), collected)
+    assert not batching._collect_maxed_connected_component(g, 0, 3, collected)
     assert collected == set([0, 1, 2])
     collected = set()
-    assert not batching._collect_maxed_connected_component(g, 1, 4, set(), collected)
+    assert not batching._collect_maxed_connected_component(g, 1, 4, collected)
     assert collected == set([0, 1, 2])
     collected = set()
-    assert not batching._collect_maxed_connected_component(g, 2, 5, set(), collected)
+    assert not batching._collect_maxed_connected_component(g, 2, 5, collected)
     assert collected == set([0, 1, 2])
     collected = set()
-    assert not batching._collect_maxed_connected_component(g, 3, 5, set(), collected)
+    assert not batching._collect_maxed_connected_component(g, 3, 5, collected)
     assert collected == set([3])
     collected = set()
-    assert not batching._collect_maxed_connected_component(g, 4, 2, set(), collected)
+    assert not batching._collect_maxed_connected_component(g, 4, 2, collected)
     assert collected == set([4, 5])
     collected = set()
-    assert not batching._collect_maxed_connected_component(g, 5, 3, set(), collected)
+    assert not batching._collect_maxed_connected_component(g, 5, 3, collected)
     assert collected == set([4, 5])
 
     # Works well with good arguments, maxing out, no exclusions
-    assert batching._collect_maxed_connected_component(g, 0, 2, set(), set())
-    assert batching._collect_maxed_connected_component(g, 1, 2, set(), set())
-    assert batching._collect_maxed_connected_component(g, 2, 2, set(), set())
-    assert batching._collect_maxed_connected_component(g, 3, 0, set(), set())
-    assert batching._collect_maxed_connected_component(g, 4, 1, set(), set())
-    assert batching._collect_maxed_connected_component(g, 5, 1, set(), set())
-
-    # Works well with good arguments, not maxing out, with exclusions
-    collected = set()
-    assert not batching._collect_maxed_connected_component(g, 0, 2, set([1]), collected)
-    assert collected == set([0, 1, 2])
-    collected = set()
-    assert not batching._collect_maxed_connected_component(g, 1, 3, set([0]), collected)
-    assert collected == set([0, 1, 2])
-    collected = set()
-    assert not batching._collect_maxed_connected_component(g, 2, 4, set([0]), collected)
-    assert collected == set([0, 1, 2])
-    collected = set()
-    assert not batching._collect_maxed_connected_component(g, 3, 0, set([3]), collected)
-    assert collected == set([3])
-    collected = set()
-    assert not batching._collect_maxed_connected_component(g, 4, 1, set([4]), collected)
-    assert collected == set([4, 5])
-    collected = set()
-    assert not batching._collect_maxed_connected_component(g, 5, 2, set([0, 1, 2]), collected)
-    assert collected == set([4, 5])
-
-    # Works well with good arguments, maxing out, with exclusions
-    assert batching._collect_maxed_connected_component(g, 0, 1, set([1]), set())
-    assert batching._collect_maxed_connected_component(g, 1, 2, set([4, 5]), set())
-    assert batching._collect_maxed_connected_component(g, 2, 1, set([0]), set())
-    assert batching._collect_maxed_connected_component(g, 3, 0, set([4]), set())
-    assert batching._collect_maxed_connected_component(g, 4, 1, set([3]), set())
-    assert batching._collect_maxed_connected_component(g, 5, 0, set([4]), set())
+    assert batching._collect_maxed_connected_component(g, 0, 2, set())
+    assert batching._collect_maxed_connected_component(g, 1, 2, set())
+    assert batching._collect_maxed_connected_component(g, 2, 2, set())
+    assert batching._collect_maxed_connected_component(g, 3, 0, set())
+    assert batching._collect_maxed_connected_component(g, 4, 1, set())
+    assert batching._collect_maxed_connected_component(g, 5, 1, set())
 
     # Raises an error if the source node has already been collected
     with pytest.raises(AssertionError):
-        batching._collect_maxed_connected_component(g, 2, None, set(), set([2]))
+        batching._collect_maxed_connected_component(g, 2, None, set([2]))
 
 
-def test_filtered_connected_component_or_none():
+def test_connected_component_or_none():
     # Our test data
     adj = np.array([[1, 1, 1, 0, 0, 0],
                     [1, 1, 0, 0, 0, 0],
@@ -345,36 +317,20 @@ def test_filtered_connected_component_or_none():
     g = nx.from_numpy_array(adj)
 
     # Works well with good arguments, not maxing out, no exclusions
-    assert batching.filtered_connected_component_or_none(g, 0, 3, set()) == set([0, 1, 2])
-    assert batching.filtered_connected_component_or_none(g, 1, 4, set()) == set([0, 1, 2])
-    assert batching.filtered_connected_component_or_none(g, 2, 5, set()) == set([0, 1, 2])
-    assert batching.filtered_connected_component_or_none(g, 3, 5, set()) == set([3])
-    assert batching.filtered_connected_component_or_none(g, 4, 2, set()) == set([4, 5])
-    assert batching.filtered_connected_component_or_none(g, 5, 3, set()) == set([4, 5])
+    assert batching.connected_component_or_none(g, 0, 3) == set([0, 1, 2])
+    assert batching.connected_component_or_none(g, 1, 4) == set([0, 1, 2])
+    assert batching.connected_component_or_none(g, 2, 5) == set([0, 1, 2])
+    assert batching.connected_component_or_none(g, 3, 5) == set([3])
+    assert batching.connected_component_or_none(g, 4, 2) == set([4, 5])
+    assert batching.connected_component_or_none(g, 5, 3) == set([4, 5])
 
     # Works well with good arguments, maxing out, no exclusions
-    assert batching.filtered_connected_component_or_none(g, 0, 2, set()) is None
-    assert batching.filtered_connected_component_or_none(g, 1, 2, set()) is None
-    assert batching.filtered_connected_component_or_none(g, 2, 2, set()) is None
-    assert batching.filtered_connected_component_or_none(g, 3, 0, set()) is None
-    assert batching.filtered_connected_component_or_none(g, 4, 1, set()) is None
-    assert batching.filtered_connected_component_or_none(g, 5, 1, set()) is None
-
-    # Works well with good arguments, not maxing out, with exclusions
-    assert batching.filtered_connected_component_or_none(g, 0, 2, set([1])) == set([0, 2])
-    assert batching.filtered_connected_component_or_none(g, 1, 3, set([0])) == set([1, 2])
-    assert batching.filtered_connected_component_or_none(g, 2, 4, set([0])) == set([1, 2])
-    assert batching.filtered_connected_component_or_none(g, 3, 0, set([3])) == set()
-    assert batching.filtered_connected_component_or_none(g, 4, 1, set([4])) == set([5])
-    assert batching.filtered_connected_component_or_none(g, 5, 2, set([0, 1, 2])) == set([4, 5])
-
-    # Works well with good arguments, maxing out, with exclusions
-    assert batching.filtered_connected_component_or_none(g, 0, 1, set([1])) is None
-    assert batching.filtered_connected_component_or_none(g, 1, 2, set([4, 5])) is None
-    assert batching.filtered_connected_component_or_none(g, 2, 1, set([0])) is None
-    assert batching.filtered_connected_component_or_none(g, 3, 0, set([4])) is None
-    assert batching.filtered_connected_component_or_none(g, 4, 1, set([3])) is None
-    assert batching.filtered_connected_component_or_none(g, 5, 0, set([4])) is None
+    assert batching.connected_component_or_none(g, 0, 2) is None
+    assert batching.connected_component_or_none(g, 1, 2) is None
+    assert batching.connected_component_or_none(g, 2, 2) is None
+    assert batching.connected_component_or_none(g, 3, 0) is None
+    assert batching.connected_component_or_none(g, 4, 1) is None
+    assert batching.connected_component_or_none(g, 5, 1) is None
 
 
 def test_distinct_random_walk():
@@ -386,67 +342,28 @@ def test_distinct_random_walk():
     g = nx.from_numpy_array(adj)
 
     # Gets the entire connected component if the randow walk is long enough, no exclusions
-    assert batching.distinct_random_walk(g, 4, set(), set([0, 1, 2, 3])) == set([0, 1, 2, 3])
-
-    # Gets the entire connected component if the randow walk is long enough, with exclusions,
-    # walking across a separating set of excluded nodes if necessary
-    assert batching.distinct_random_walk(g, 4, set([2]), set([0, 1, 3])) == set([0, 1, 3])
+    assert batching.distinct_random_walk(g, 0, 4) == set([0, 1, 2, 3])
 
     # Gets a subset of the connected component, no exclusions
-    walk = batching.distinct_random_walk(g, 3, set(), set([0, 1, 2, 3]))
-    assert len(walk) == 3
-    assert walk.issubset([0, 1, 2, 3])
-
-    # Gets a subset of the connected component, with exclusions
-    walk = batching.distinct_random_walk(g, 2, set([2]), set([0, 1, 3]))
-    assert len(walk) == 2
-    assert walk.issubset([0, 1, 3])
+    assert batching.distinct_random_walk(g, 0, 3) == set([0, 1, 2])
 
 
-def test_jumpy_distinct_random_walk():
-    # Our test data
-    adj = np.array([[1, 1, 0, 0, 0, 0],
-                    [1, 1, 1, 0, 0, 0],
-                    [0, 1, 1, 1, 0, 0],
-                    [0, 0, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 1, 1],
-                    [0, 0, 0, 0, 1, 1]])
-    g = nx.from_numpy_array(adj)
-
-    # A `max_size` larger than the network returns the whole network
-    assert batching.jumpy_distinct_random_walk(g, 10, 3) == set(range(adj.shape[0]))
-
-    # A `max_size` smaller than the network returns a set of size `max_size`
-    assert len(batching.jumpy_distinct_random_walk(g, 4, 3)) == 4
-
-    # If all connected components are multiples of `max_walk_length`, the left-overs
-    # are also multiples of `max_walk_length`
-    walk = batching.jumpy_distinct_random_walk(g, 4, 2)
-    left_overs = set(range(adj.shape[0])).difference(walk)
-    assert (left_overs == set([0, 1]) or
-            left_overs == set([0, 2]) or
-            left_overs == set([0, 3]) or
-            left_overs == set([1, 2]) or
-            left_overs == set([1, 3]) or
-            left_overs == set([2, 3]) or
-            left_overs == set([4, 5]))
-
-
-def test_jumpy_walks():
+def test_batch_walks():
     # Rejects a non-ndarray numpy matrix
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks((np.ones((5, 5)) - np.eye(5)).tolist(), 3, 2))
+        list(batching.batch_walks((np.ones((5, 5)) - np.eye(5)).tolist(), 3, 2))
+
     # Rejects a directed graph
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(np.array([[0, 1],
+        list(batching.batch_walks(np.array([[0, 1],
                                             [0, 0]]), 3, 2))
     # Rejects a weighted graph
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(np.array([[0, 2],
+        list(batching.batch_walks(np.array([[0, 2],
                                             [2, 0]]), 3, 2))
     # Rejects a graph with self-connections
     with pytest.raises(AssertionError):
-        list(batching.jumpy_walks(np.array([[1, 1],
+        list(batching.batch_walks(np.array([[1, 1],
                                             [1, 0]]), 3, 2))
 
     # Yields the right number of walks to span the whole graph
@@ -455,11 +372,11 @@ def test_jumpy_walks():
                     [0, 1, 0, 1, 0],
                     [0, 0, 1, 0, 0],
                     [0, 0, 0, 0, 0]])
-    walks = list(batching.jumpy_walks(adj, 2, 2))
+    walks = list(batching.batch_walks(adj, 2, 2))
     assert len(walks) == 3
 
     # Still works when run a second time, relying on memoization
-    walks = list(batching.jumpy_walks(adj, 2, 2))
+    walks = list(batching.batch_walks(adj, 2, 2))
     assert len(walks) == 3
 
 
@@ -476,7 +393,6 @@ def test_epoch_batches(model_depth2):
     assert len(batches) == 3
     required_nodes, final_nodes, feeds = batches[0]
     assert_array_equal(final_nodes, sorted(final_nodes))
-    assert len(final_nodes) == 2
     assert set(feeds.keys()) == set(['layer1a_adj/indices',
                                      'layer1a_adj/values',
                                      'layer1a_adj/dense_shape',
@@ -489,13 +405,21 @@ def test_epoch_batches(model_depth2):
                                      'layer2_adj/values',
                                      'layer2_adj/dense_shape',
                                      'layer2_output_mask'])
+    # len == 3 if node 4 was in the seeds for batch 0.
+    # if node 4 is not in the seeds, it can be 2, 3, or 4 depending on the overlap of the walks.
+    assert len(final_nodes) in [2, 3, 4]
+    # Make sure we span all possible lengths when iterating enough
+    lengths = set()
+    for _ in range(100):
+        _, final_nodes, _ = next(batching.epoch_batches(model_depth2, adj, 2, 2))
+        lengths.add(len(final_nodes))
+    assert lengths == set([2, 3, 4])
 
     # Works well with good arguments, with sampling
     batches = list(batching.epoch_batches(model_depth2, adj, 2, 2, neighbour_samples=1))
     assert len(batches) == 3
     required_nodes, final_nodes, feeds = batches[0]
     assert_array_equal(final_nodes, sorted(final_nodes))
-    assert len(final_nodes) == 2
     assert set(feeds.keys()) == set(['layer1a_adj/indices',
                                      'layer1a_adj/values',
                                      'layer1a_adj/dense_shape',
@@ -508,3 +432,13 @@ def test_epoch_batches(model_depth2):
                                      'layer2_adj/values',
                                      'layer2_adj/dense_shape',
                                      'layer2_output_mask'])
+    # len == 3 if node 4 was in the seeds for batch 0.
+    # if node 4 is not in the seeds, it can be 2, 3, or 4 depending on the overlap of the walks.
+    assert len(final_nodes) in [2, 3, 4]
+    # Make sure we span all possible lengths when iterating enough
+    lengths = set()
+    for _ in range(100):
+        _, final_nodes, _ = next(batching.epoch_batches(model_depth2, adj, 2, 2,
+                                                        neighbour_samples=1))
+        lengths.add(len(final_nodes))
+    assert lengths == set([2, 3, 4])
