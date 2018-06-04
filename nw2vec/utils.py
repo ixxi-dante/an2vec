@@ -13,15 +13,18 @@ import numba
 logger = logging.getLogger(__name__)
 
 
+# TOTEST
 def csr_to_sparse_tensor_parts(m):
     return _csr_to_sparse_tensor_parts(m.indices, m.indptr, m.data, m.shape)
 
 
+# TOTEST
 def sparse_tensor_parts_to_csr(parts):
     ind, data, shape = parts
     return sparse.csr_matrix((data, (ind[:, 0], ind[:, 1])), shape=shape)
 
 
+# TOTEST
 @numba.jit(nopython=True)
 def _csr_to_sparse_tensor_parts(indices, indptr, data, shape):
     n_values = len(data)
@@ -36,10 +39,12 @@ def _csr_to_sparse_tensor_parts(indices, indptr, data, shape):
     return (ind, data, shape)
 
 
+# TOTEST
 def inner_repeat(it, n):
     return itertools.chain(*zip(*itertools.tee(it, n)))
 
 
+# TOTEST
 def grouper(iterable, n):
     it = iter(iterable)
     while True:
@@ -51,6 +56,7 @@ def grouper(iterable, n):
         yield itertools.chain((first,), chunk)
 
 
+# TOTEST
 def scale_center(x, norm='l2'):
     assert norm in ['l1', 'l2']
     if norm == 'l1':
@@ -62,6 +68,7 @@ def scale_center(x, norm='l2'):
     return x
 
 
+# TOTEST
 def softmax(x, axes=[-1]):
     if len(x.shape) == 0:
         raise ValueError("Cannot perform softmax on 0D tensor")
@@ -70,6 +77,7 @@ def softmax(x, axes=[-1]):
     return e / s
 
 
+# TOTEST
 def Softmax(axes=[-1]):
     def axes_softmax(x):
         return softmax(x, axes=axes)
@@ -106,6 +114,7 @@ def broadcast_left(array, target_array):
             return out
 
 
+# TOTEST
 def get_backend(array):
     return tf if isinstance(array, (tf.Tensor, tf.Variable)) else np
 
