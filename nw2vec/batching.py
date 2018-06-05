@@ -9,6 +9,9 @@ from nw2vec import graph
 from nw2vec import utils
 
 
+# TODO: numbise what can be
+
+
 def _layer_csr_adj(out_nodes, adj, neighbour_samples):
     assert isinstance(adj, sparse.csr_matrix)
 
@@ -158,18 +161,24 @@ def connected_component_or_none(g, node, max_size):
 
 def distinct_random_walk(g, seed, max_walk_length):
     seed_component = connected_component_or_none(g, seed, max_walk_length)
-
     if seed_component is not None:
         # This connected component has `<= max_walk_length` unique nodes,
         # so the walk would span it all.
         return seed_component
 
     current_node = seed
+    last_node = None
     walk_nodes = set([current_node])
     # We know this walk will stop eventually because this component is
     # larger than `max_walk_length`.
     while len(walk_nodes) < max_walk_length:
-        current_node = random.sample(list(g.neighbors(current_node)), 1)[0]
+        prev_last_node = last_node
+        last_node = current_node
+        if prev_last_node is None:
+            current_node = random.sample(list(g.neighbors(last_node)), 1)[0]
+        else:
+            current_node = g.draw_after_edge(prev_last_node, last_node)
+
         # No-op if current_node was already seen. We just move on to it and sample
         # from its neighbours in the next iteration.
         walk_nodes.add(current_node)
@@ -177,22 +186,44 @@ def distinct_random_walk(g, seed, max_walk_length):
     return walk_nodes
 
 
-def batch_walks(adj, seeds_per_batch, max_walk_length):
-    if not isinstance(adj, sparse.csr_matrix):
-        assert isinstance(adj, np.ndarray)
-        adj = sparse.csr_matrix(adj)
-
-    g = graph.CSGraph(adj)
+def batch_walks(g, seeds_per_batch, max_walk_length):
     seeds = g.nodes.copy()
     np.random.shuffle(seeds)
 
+    # TODO: parallelise
     for batch_seeds in utils.grouper(seeds, seeds_per_batch):
         yield set().union(*[distinct_random_walk(g, seed, max_walk_length)
                             for seed in batch_seeds])
 
 
-def epoch_batches(model, adj, seeds_per_batch, max_walk_length, neighbour_samples=None):
-    for final_nodes in batch_walks(adj, seeds_per_batch, max_walk_length):
-        required_nodes, feeds = _compute_batch(model, adj, final_nodes,
+def epoch_batches(model, g,
+                  seeds_per_batch, max_walk_length,
+                  neighbour_samples):
+    # TODO: parallelise
+    for final_nodes in batch_walks(g, seeds_per_batch, max_walk_length):
+        required_nodes, feeds = _compute_batch(model, g.adj, final_nodes,
                                                neighbour_samples=neighbour_samples)
         yield required_nodes, np.array(sorted(final_nodes)), feeds
+
+
+def batches(model, adj, features, target_func,
+            seeds_per_batch, max_walk_length,
+            p=1.0, q=1.0, neighbour_samples=None):
+    # Prepare graph structure
+    if not isinstance(adj, sparse.csr_matrix):
+        assert isinstance(adj, np.ndarray)
+        adj = sparse.csr_matrix(adj)
+    g = graph.CSGraph(adj, p, q)
+
+    # Prepare features
+    assert adj.shape[0] == adj.shape[1]
+    assert features.shape[0] == adj.shape[0]
+    features = utils.scale_center(features)
+
+    while True:
+        for required_nodes, final_nodes, feeds in epoch_batches(
+             model, g, seeds_per_batch, max_walk_length, neighbour_samples):
+            batch_adj = adj[final_nodes, :][:, final_nodes]
+            yield (features[required_nodes],
+                   target_func(batch_adj, required_nodes, final_nodes),
+                   feeds)
