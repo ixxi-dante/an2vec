@@ -85,6 +85,8 @@ def test_inner_repeat():
 
 def test_grouper():
     assert list(map(list, utils.grouper(range(5), 2))) == [[0, 1], [2, 3], [4]]
+    # Also works if the group size is longer than the actual iterator
+    assert list(map(list, utils.grouper(range(5), 10))) == [[0, 1, 2, 3, 4]]
 
 
 @pytest.mark.skip(reason='Implement test')
