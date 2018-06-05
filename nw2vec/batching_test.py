@@ -490,7 +490,7 @@ def test_batches(model_depth2):
         lambda batch_adj, required_nodes, final_nodes: (batch_adj, required_nodes, final_nodes),
         2, 2))
     # Features are l2-normalised and centred
-    assert features.shape[0] == 4
+    assert features.shape[0] in [4, 5]
     assert features.shape[1] == 10
     assert_allclose(features.mean(1), 0, atol=1e-12)
     assert_allclose((features ** 2).sum(1), 1, atol=1e-12)
