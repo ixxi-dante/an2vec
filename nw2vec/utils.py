@@ -13,6 +13,57 @@ import numba
 logger = logging.getLogger(__name__)
 
 
+@numba.jit(nopython=True)
+def alias_setup(probs):
+    """Compute utility lists for non-uniform sampling from discrete distributions.
+
+    Requires a real, i.e. normalised, distribution in `probs`.
+
+    Refer to
+    https://hips.seas.harvard.edu/blog/2013/03/03/the-alias-method-efficient-sampling-with-many-discrete-outcomes/
+    for details.
+    """
+
+    #if not isinstance(probs, np.ndarray):
+        #raise ValueError
+
+    n_choices = len(probs)
+    mixture_weights = probs.copy() * n_choices
+    mixture_choices = np.zeros(n_choices, np.int32)
+
+    small_choices = []
+    large_choices = []
+    for choice in range(n_choices):
+        if mixture_weights[choice] < 1.0:
+            small_choices.append(choice)
+        else:
+            large_choices.append(choice)
+
+    while len(small_choices) > 0 and len(large_choices) > 0:
+        small = small_choices.pop()
+        large = large_choices.pop()
+
+        mixture_choices[small] = large
+        mixture_weights[large] = mixture_weights[large] + mixture_weights[small] - 1.0
+        if mixture_weights[large] < 1.0:
+            small_choices.append(large)
+        else:
+            large_choices.append(large)
+
+    return mixture_choices, mixture_weights
+
+
+@numba.jit(nopython=True)
+def alias_draw(mixture_choices, mixture_weights):
+    """Draw sample from a non-uniform discrete distribution using alias sampling."""
+
+    pre_choice = np.random.randint(len(mixture_choices))
+    if np.random.rand() < mixture_weights[pre_choice]:
+        return pre_choice
+    else:
+        return mixture_choices[pre_choice]
+
+
 # TOTEST
 def csr_to_sparse_tensor_parts(m):
     return _csr_to_sparse_tensor_parts(m.indices, m.indptr, m.data, m.shape)
