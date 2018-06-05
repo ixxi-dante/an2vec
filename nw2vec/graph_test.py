@@ -4,6 +4,7 @@ from numpy.testing import assert_array_equal
 from scipy import sparse
 
 from nw2vec import graph
+from nw2vec import utils
 
 
 def test_csr_eye():
@@ -18,108 +19,154 @@ def g():
            [1, 1, 1, 0, 1, 0],
            [0, 0, 0, 1, 0, 1],
            [0, 1, 1, 0, 1, 0]]
-    return graph.CSGraph(sparse.csr_matrix(np.array(adj)))
+    return graph.CSGraph(sparse.csr_matrix(np.array(adj)), .5, 4)
+
+
+def assert_alias_equal(alias1, alias2):
+    assert_array_equal(alias1[0], alias2[0])
+    assert_array_equal(alias1[1], alias2[1])
 
 
 def test_CSGraph_init():
     # Works with good arguments
-    graph.CSGraph(sparse.csr_matrix(np.array([[0, 1],
-                                              [1, 0]])))
+    adj = sparse.csr_matrix(np.array([[1, 1], [1, 0]]))
+    adj.data[0] = 0
+    g = graph.CSGraph(adj, .5, 4)
+    # Got the parameters right
+    assert g._p == .5
+    assert g._q == 4
+    # Eliminates zeros in adjacency matrix
+    assert_array_equal(g.adj.data, [1, 1])
+    assert_array_equal(g.adj.toarray(), [[0, 1], [1, 0]])
+    # Computed the edge aliases
+    assert set(g._edge_aliases.keys()) == {(0, 1), (1, 0)}
+    assert_alias_equal(g._edge_aliases[(0, 1)], ([0], [1]))
 
     # Rejects non-sparse matrices
     with pytest.raises(ValueError):
         graph.CSGraph(np.array([[0, 1],
-                                [0, 0]]))
+                                [0, 0]]),
+                      .5, 4)
 
     # Rejects directed graphs
     with pytest.raises(AssertionError):
         graph.CSGraph(sparse.csr_matrix(np.array([[0, 1],
-                                                  [0, 0]])))
+                                                  [0, 0]])),
+                      .5, 4)
 
     # Rejects weighted graphs
     with pytest.raises(AssertionError):
         graph.CSGraph(sparse.csr_matrix(np.array([[0, 1],
-                                                  [2, 0]])))
+                                                  [2, 0]])),
+                      .5, 4)
 
     # Rejects diagonal elements
     with pytest.raises(AssertionError):
         graph.CSGraph(sparse.csr_matrix(np.array([[1, 1],
-                                                  [1, 0]])))
+                                                  [1, 0]])),
+                      .5, 4)
 
 
-def test_CSGraph_labels_exist(g):
-    # All initial labels exist
-    assert g.labels_exist(range(6)).all()
-    # This also works with smaller test lists, sets, or ndarrays, works
-    assert g.labels_exist([2, 4]).all()
-    assert g.labels_exist(set([2, 4])).all()
-    assert g.labels_exist(np.array([2, 4])).all()
-    # Removing labels make those labels not exist
-    g.remove_nodes_from([2, 3])
-    assert_array_equal(g.labels_exist([1, 2, 3, 4]), [True, False, False, True])
-    # Negative labels raise an exception
-    with pytest.raises(IndexError):
-        g.labels_exist([-1, 0])
-    # Out-of-range labels raise an exception
-    with pytest.raises(IndexError):
-        g.labels_exist([0, 6])
-    # `labels` not being a list, set, range, or ndarray raises an exception
-    with pytest.raises(ValueError):
-        g.labels_exist({})
+def test_CSGraph__get_alias_edge(g):
+    # Works well with good parameters
+    probs01 = np.array([2, 1, 1/4])
+    assert_alias_equal(g._get_alias_edge(0, 1), utils.alias_setup(probs01 / probs01.sum()))
 
-
-def test_CSGraph_remove_nodes_from(g):
-    # Removing nodes works
-    g.remove_nodes_from([2, 3, 4])
-    assert_array_equal(g.nodes, [0, 1, 5])
-    assert_array_equal(g.adj.toarray(), [[0, 1, 0],
-                                         [1, 0, 1],
-                                         [0, 1, 0]])
-    # Removing negative nodes fails
-    with pytest.raises(IndexError):
-        g.remove_nodes_from(set([-1]))
-    # Removing out-of-range nodes fails
-    with pytest.raises(IndexError):
-        g.remove_nodes_from(set([6]))
-    # Removing nothing works
-    g.remove_nodes_from([])
-    assert_array_equal(g.nodes, [0, 1, 5])
-    # Removing more nodes works
-    g.remove_nodes_from(set([0, 1]))
-    assert_array_equal(g.nodes, [5])
-    assert_array_equal(g.adj.toarray(), [[0]])
-    # Removing already-removed nodes fails
+    # Fails if `dst` has no neighbours (which should never happen,
+    # since we always arrive through a link)
+    g.adj = sparse.csr_matrix(np.array([[0, 1, 1, 1, 0, 0],
+                                        [1, 0, 0, 1, 0, 0],
+                                        [1, 0, 0, 1, 0, 0],
+                                        [1, 1, 1, 0, 1, 0],
+                                        [0, 0, 0, 1, 0, 0],
+                                        [0, 0, 0, 0, 0, 0]]))
     with pytest.raises(AssertionError):
-        g.remove_nodes_from(set([1, 5]))
+        g._get_alias_edge(1, 5)
+
+
+def test_CSGraph__init_transition_probs(g):
+    # Gives the right values upon class instanciation
+    set(g._edge_aliases.keys()) == {(0, 1), (0, 2), (0, 3),
+                                    (1, 0), (1, 3), (1, 5),
+                                    (2, 0), (2, 3), (2, 5),
+                                    (3, 0), (3, 1), (3, 2), (3, 4),
+                                    (4, 3), (4, 5),
+                                    (5, 1), (5, 2), (5, 4)}
+    probs20 = np.array([1/4, 2, 1])
+    assert_array_equal(g._edge_aliases[(2, 0)], utils.alias_setup(probs20 / probs20.sum()))
+    probs31 = np.array([1, 2, 1/4])
+    assert_array_equal(g._edge_aliases[(3, 1)], utils.alias_setup(probs31 / probs31.sum()))
+
+
+def test_CSGraph_draw_after_edge(g):
+    # Works well with good parameters
+    assert g.draw_after_edge(0, 1) in [0, 3, 5]
+    assert g.draw_after_edge(1, 3) in [0, 1, 2, 4]
+    draws01 = set()
+    draws13 = set()
+    for _ in range(100):
+        draws01.add(g.draw_after_edge(0, 1))
+        draws13.add(g.draw_after_edge(1, 3))
+    assert draws01 == {0, 3, 5}
+    assert draws13 == {0, 1, 2, 4}
+
+    # Fails if the edge is not found
+    with pytest.raises(KeyError):
+        g.draw_after_edge(1, 2)
 
 
 def test_CSGraph_neighbors(g):
+    # Gives the right value
     assert_array_equal(g.neighbors(1), [0, 3, 5])
-    g.remove_nodes_from([3, 5])
-    assert_array_equal(g.neighbors(1), [0])
 
-
-def test_CSGraph_copy(g):
-    g2 = g.copy()
-    # Original and copy are equal
-    assert g == g2
-    # Removing from the copy does not affect the original
-    g2.remove_nodes_from([1, 5])
-    assert not g2.labels_exist([1, 5]).any()
-    assert g.labels_exist([1, 5]).all()
-    assert_array_equal(g.neighbors(1), [0, 3, 5])
+    # Fails on out of bounds
+    with pytest.raises(AssertionError):
+        g.neighbors(-1)
+    with pytest.raises(AssertionError):
+        g.neighbors(6)
 
 
 def test_CSGraph_eq():
     # Two graphs initialised with the same value are equal
     g1 = graph.CSGraph(sparse.csr_matrix(np.array([[0, 1, 0],
                                                    [1, 0, 1],
-                                                   [0, 1, 0]])))
+                                                   [0, 1, 0]])),
+                       2, 4)
     g2 = graph.CSGraph(sparse.csr_matrix(np.array([[0, 1, 0],
                                                    [1, 0, 1],
-                                                   [0, 1, 0]])))
+                                                   [0, 1, 0]])),
+                       2, 4)
     assert g1 == g2
-    # And still equal after removing the same nodes
-    g1.remove_nodes_from([1])
-    g2.remove_nodes_from([1])
-    assert g1 == g2
+
+    # Two graphs initialised with different matrices are different
+    g1 = graph.CSGraph(sparse.csr_matrix(np.array([[0, 1, 1],
+                                                   [1, 0, 1],
+                                                   [1, 1, 0]])),
+                       2, 4)
+    g2 = graph.CSGraph(sparse.csr_matrix(np.array([[0, 1, 0],
+                                                   [1, 0, 1],
+                                                   [0, 1, 0]])),
+                       2, 4)
+    assert g1 != g2
+
+    # Two graphs initialised with different p or q are different
+    g1 = graph.CSGraph(sparse.csr_matrix(np.array([[0, 1, 0],
+                                                   [1, 0, 1],
+                                                   [0, 1, 0]])),
+                       2, 4)
+    g2 = graph.CSGraph(sparse.csr_matrix(np.array([[0, 1, 0],
+                                                   [1, 0, 1],
+                                                   [0, 1, 0]])),
+                       3, 4)
+    assert g1 != g2
+
+    # Two graphs initialised with different matrices are different
+    g1 = graph.CSGraph(sparse.csr_matrix(np.array([[0, 1, 0],
+                                                   [1, 0, 1],
+                                                   [0, 1, 0]])),
+                       2, 4)
+    g2 = graph.CSGraph(sparse.csr_matrix(np.array([[0, 1, 0],
+                                                   [1, 0, 1],
+                                                   [0, 1, 0]])),
+                       2, 3)
+    assert g1 != g2
