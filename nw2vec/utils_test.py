@@ -7,9 +7,11 @@ from nw2vec import utils
 
 
 def test_alias_setup():
-    # Bails if `probs` is not an ndarray
+    # Fails if `probs` is not an ndarray or is empty
     with pytest.raises(numba.errors.TypingError):
         utils.alias_setup([.5, .5])
+    with pytest.raises(AssertionError):
+        utils.alias_setup(np.array([]))
 
     # Works with good arguments
     probs = np.ones(4)
@@ -45,6 +47,20 @@ def test_alias_draw():
     assert counts[0] == 0
     assert np.sum(counts[1:]) == n_draws
     assert_allclose(counts[1:], n_draws * probs[1:], atol=50)
+
+    # Fails with empty or None inputs
+    with pytest.raises(numba.errors.TypingError):
+        utils.alias_draw(None, weights)
+    with pytest.raises(numba.errors.TypingError):
+        utils.alias_draw(choices, None)
+    with pytest.raises(numba.errors.TypingError):
+        utils.alias_draw(None, None)
+    with pytest.raises(AssertionError):
+        utils.alias_draw(choices[:0], weights)
+    with pytest.raises(AssertionError):
+        utils.alias_draw(choices, weights[:0])
+    with pytest.raises(AssertionError):
+        utils.alias_draw(choices[:0], weights[:0])
 
 
 @pytest.mark.skip(reason='Implement test')

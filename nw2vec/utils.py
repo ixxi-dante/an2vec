@@ -23,11 +23,9 @@ def alias_setup(probs):
     https://hips.seas.harvard.edu/blog/2013/03/03/the-alias-method-efficient-sampling-with-many-discrete-outcomes/
     for details.
     """
-
-    #if not isinstance(probs, np.ndarray):
-        #raise ValueError
-
     n_choices = len(probs)
+    assert n_choices > 0
+
     mixture_weights = probs.copy() * n_choices
     mixture_choices = np.zeros(n_choices, np.int32)
 
@@ -56,6 +54,8 @@ def alias_setup(probs):
 @numba.jit(nopython=True)
 def alias_draw(mixture_choices, mixture_weights):
     """Draw sample from a non-uniform discrete distribution using alias sampling."""
+    assert len(mixture_choices) > 0
+    assert len(mixture_choices) == len(mixture_weights)
 
     pre_choice = np.random.randint(len(mixture_choices))
     if np.random.rand() < mixture_weights[pre_choice]:
