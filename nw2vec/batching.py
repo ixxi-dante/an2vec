@@ -1,5 +1,6 @@
 import random
 
+import numba
 import numpy as np
 from scipy import sparse
 import networkx as nx
@@ -10,6 +11,35 @@ from nw2vec import utils
 
 
 # TODO: numbise what can be
+
+
+@numba.jit(nopython=True)
+def _layer_csr_adj_sampling(out_nodes, adj_indices, adj_indptr, neighbour_samples):
+    # `neighbour_samples` is not None, we can preallocate then cut back what we didn't fill
+    max_samples = len(out_nodes) * neighbour_samples
+    row_ind = np.zeros(max_samples, dtype=np.int32)
+    col_ind = np.zeros(max_samples, dtype=np.int32)
+    n_collected = 0
+
+    for out_node in out_nodes:
+        neighbours = adj_indices[adj_indptr[out_node]:adj_indptr[out_node + 1]]
+        n_neighbours = len(neighbours)
+        if n_neighbours == 0:
+            # If there are no neighours, nothing to sample from, so we're done for this node
+            continue
+
+        sample_size = min(n_neighbours, neighbour_samples)
+        row_ind[n_collected:n_collected + sample_size] = out_node
+        # This is faster than using `np.random.choice(replace=False)`
+        np.random.shuffle(neighbours)
+        col_ind[n_collected:n_collected + sample_size] = neighbours[:sample_size]
+        n_collected += sample_size
+
+    # Chop off what we didn't use
+    row_ind = row_ind[:n_collected]
+    col_ind = col_ind[:n_collected]
+
+    return (row_ind, col_ind)
 
 
 def _layer_csr_adj(out_nodes, adj, neighbour_samples):
@@ -32,33 +62,10 @@ def _layer_csr_adj(out_nodes, adj, neighbour_samples):
                 continue
             row_ind.extend([out_node] * n_neighbours)
             col_ind.extend(neighbours)
+        return (row_ind, col_ind)
 
     else:
-        # `neighbour_samples` is not None, we can preallocate then cut back what we didn't fill
-        max_samples = len(out_nodes) * neighbour_samples
-        row_ind = np.zeros(max_samples, dtype=int)
-        col_ind = np.zeros(max_samples, dtype=int)
-        n_collected = 0
-
-        for out_node in out_nodes:
-            neighbours = adj.indices[adj.indptr[out_node]:adj.indptr[out_node + 1]]
-            n_neighbours = len(neighbours)
-            if n_neighbours == 0:
-                # If there are no neighours, nothing to sample from, so we're done for this node
-                continue
-
-            sample_size = min(n_neighbours, neighbour_samples)
-            row_ind[n_collected:n_collected + sample_size] = out_node
-            # This is faster than using `np.random.choice(replace=False)`
-            np.random.shuffle(neighbours)
-            col_ind[n_collected:n_collected + sample_size] = neighbours[:sample_size]
-            n_collected += sample_size
-
-        # Chop off what we didn't use
-        row_ind = row_ind[:n_collected]
-        col_ind = col_ind[:n_collected]
-
-    return (row_ind, col_ind)
+        return _layer_csr_adj_sampling(out_nodes, adj.indices, adj.indptr, neighbour_samples)
 
 
 def mask_indices(indices, size):
@@ -132,7 +139,10 @@ def _compute_batch(model, adj, final_nodes, neighbour_samples):
     return required_nodes, feeds
 
 
+# @numba.jit(nopython=True)
 def _collect_maxed_connected_component(g, node, max_size, collected):
+    # # Remove the single int added by `connected_component_or_none`
+    # collected.remove(-1)
     assert node not in collected
 
     collected.add(node)
@@ -152,9 +162,12 @@ def _collect_maxed_connected_component(g, node, max_size, collected):
 
 
 def connected_component_or_none(g, node, max_size):
+    # # Add a single int which is then removed in `_collect_maxed_connected_component`,
+    # # so numba knows the type of this set
+    # collected = set([-1])
+    collected = set()
     # Return the set of nodes making up the connected component containing `node`,
     # up to `max_size` (included), or `None` if the component is bigger than `max_size`.
-    collected = set()
     maxed = _collect_maxed_connected_component(g, node, max_size, collected)
     return None if maxed else collected
 
