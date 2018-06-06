@@ -170,3 +170,19 @@ def test_CSGraph_eq():
                                                    [0, 1, 0]])),
                        2, 3)
     assert g1 != g2
+
+
+def test_get_csgraph():
+    # `adj_a` and `adj_b` are two different objects
+    adj_a = sparse.csr_matrix(np.ones((5, 5)) - np.eye(5))
+    adj_b = sparse.csr_matrix(np.ones((5, 5)) - np.eye(5))
+    assert id(adj_a) != id(adj_b)
+
+    # `g11_a` and `g11_b` are the same object
+    g11_a = graph.get_csgraph(adj_a, 1, 1)
+    g11_b = graph.get_csgraph(adj_b, 1, 1)
+    assert id(g11_a) == id(g11_b)
+
+    # `g11_a` and `g12_a` are different objects
+    g12_a = graph.get_csgraph(adj_a, 1, 2)
+    assert id(g11_a) != id(g12_a)
