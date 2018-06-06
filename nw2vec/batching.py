@@ -213,7 +213,7 @@ def batches(model, adj, features, target_func,
     if not isinstance(adj, sparse.csr_matrix):
         assert isinstance(adj, np.ndarray)
         adj = sparse.csr_matrix(adj)
-    g = graph.CSGraph(adj, p, q)
+    g = graph.get_csgraph(adj, p, q)
 
     # Prepare features
     assert adj.shape[0] == adj.shape[1]
