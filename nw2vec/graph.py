@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 from scipy import sparse
 import joblib
@@ -8,6 +9,21 @@ from nw2vec import utils
 
 def csr_eye(n):
     return sparse.csr_matrix((np.ones(n), (np.arange(n), np.arange(n))), shape=(n, n))
+
+
+def _caching_get_csgraph():
+    cache = {}
+
+    def _get_csgraph(adj, p, q):
+        key = (joblib.hash(adj), p, q)
+        if key not in cache:
+            cache[key] = CSGraph(adj, p, q)
+        return cache[key]
+
+    return _get_csgraph
+
+
+get_csgraph = _caching_get_csgraph()
 
 
 class CSGraph:
@@ -28,25 +44,14 @@ class CSGraph:
         self.adj.eliminate_zeros()
         self._p = p
         self._q = q
+
+        self.nodes = np.arange(self.adj.shape[0])
         self._init_transition_probs()
 
     def _get_alias_edge(self, src, dst):
-        src_neigbours = self.neighbors(src)
-        dst_neigbours = self.neighbors(dst)
-
-        n_dst_neigbours = len(dst_neigbours)
-        assert n_dst_neigbours > 0
-
-        uprobs = np.zeros(n_dst_neigbours)
-        for i, next_dst in enumerate(dst_neigbours):
-            if next_dst == src:
-                uprobs[i] = 1.0 / self._p
-            elif next_dst in src_neigbours:
-                uprobs[i] = 1.0
-            else:
-                uprobs[i] = 1.0 / self._q
-
-        return utils.alias_setup(uprobs / uprobs.sum())
+        return _get_alias_edge(src, dst,
+                               self._p, self._q,
+                               self.adj.data, self.adj.indices, self.adj.indptr, self.adj.shape)
 
     def _init_transition_probs(self):
         # Note: this first part will only be relevant once (if) we add edge weights
@@ -79,12 +84,7 @@ class CSGraph:
         return self.neighbors(dst)[drawn]
 
     def neighbors(self, idx):
-        assert idx >= 0 and idx < self.adj.shape[0]
-        return self.adj.indices[self.adj.indptr[idx]:self.adj.indptr[idx + 1]]
-
-    @cached_property
-    def nodes(self):
-        return np.arange(self.adj.shape[0])
+        return _neighbours(idx, self.adj.data, self.adj.indices, self.adj.indptr, self.adj.shape)
 
     @cached_property
     def __key(self):
@@ -96,3 +96,28 @@ class CSGraph:
 
     def __eq__(self, other):
         return self.__key == other.__key
+
+
+@numba.jit(nopython=True)
+def _get_alias_edge(src, dst,
+                    p, q,
+                    adj_data, adj_indices, adj_indptr, adj_shape):
+    src_neigbours = _neighbours(src, adj_data, adj_indices, adj_indptr, adj_shape)
+    dst_neigbours = _neighbours(dst, adj_data, adj_indices, adj_indptr, adj_shape)
+
+    n_dst_neigbours = len(dst_neigbours)
+    assert n_dst_neigbours > 0
+
+    uprobs = np.ones(n_dst_neigbours) / q
+    uprobs[dst_neigbours == src] = 1.0 / p
+    dst_src_neigbours = (np.expand_dims(dst_neigbours, 1)
+                         == np.expand_dims(src_neigbours, 0)).sum(1).astype(np.bool8)
+    uprobs[dst_src_neigbours] = 1
+
+    return utils.alias_setup(uprobs / uprobs.sum())
+
+
+@numba.jit(nopython=True)
+def _neighbours(idx, adj_data, adj_indices, adj_indptr, adj_shape):
+    assert idx >= 0 and idx < adj_shape[0]
+    return adj_indices[adj_indptr[idx]:adj_indptr[idx + 1]]
