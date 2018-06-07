@@ -196,6 +196,8 @@ dependencies:
   - ca-certificates=2018.03.07=0
   - certifi=2018.4.16=py36_0
   - grpcio=1.11.0=py36hf484d3e_0
+  - h5py=2.8.0=py36ha1f6525_0
+  - hdf5=1.10.2=hba1933b_1
   - intel-openmp=2018.0.0=8
   - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=7.2.0=hdf63c60_3
