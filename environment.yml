@@ -24,6 +24,7 @@ dependencies:
 - nbformat
 - networkx
 - nltk
+- nodejs
 - notebook
 - numba
 - numpy
