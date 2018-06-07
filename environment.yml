@@ -10,6 +10,7 @@ dependencies:
 - dask
 - distributed
 - gensim
+- h5py
 - hdfs3
 - ipdb
 - ipykernel
