@@ -334,6 +334,7 @@ class Model(keras.Model):
 def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
     adj = keras.layers.Input(tensor=tf.sparse_placeholder(tf.float32, shape=(None, None),
                                                           name=name + '_adj'),
+                             sparse=True,
                              name=name + '_adj')
     mask = keras.layers.Input(tensor=tf.placeholder(tf.float32, shape=(None,),
                                                     name=name + '_output_mask'),
