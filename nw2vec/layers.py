@@ -333,5 +333,7 @@ class ParametrisedStochastic(keras.layers.Lambda):
 
 
 def available_layers():
-    return inspect.getmembers(sys.modules[__name__],
-                              lambda m: inspect.isclass(m) and issubclass(m, keras.layers.Layer))
+    return dict(
+        inspect.getmembers(sys.modules[__name__],
+                           lambda m: inspect.isclass(m) and issubclass(m, keras.layers.Layer))
+   )
