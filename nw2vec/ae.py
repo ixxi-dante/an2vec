@@ -81,6 +81,8 @@ class ModelBatchCheckpoint(cbks.Callback):
 
     def on_batch_end(self, batch, logs=None):
         logs = logs or {}
+        if 'batch' in logs:
+            assert logs.pop('batch') == batch
         self.batches_since_last_save += 1
         if self.batches_since_last_save >= self.period:
             self.batches_since_last_save = 0
