@@ -1,3 +1,6 @@
+import sys
+import inspect
+
 import numpy as np
 import tensorflow as tf
 import keras
@@ -327,3 +330,8 @@ class ParametrisedStochastic(keras.layers.Lambda):
                     config[key] = np.array(config[key]['value'])
 
         return cls(**config)
+
+
+def available_layers():
+    return inspect.getmembers(sys.modules[__name__],
+                              lambda m: inspect.isclass(m) and issubclass(m, keras.layers.Layer))
