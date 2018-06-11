@@ -35,7 +35,7 @@ neighbour_samples = 30
 
 if 'CUDA_VISIBLE_DEVICES' not in os.environ:
     raise ValueError('CUDA_VISIBLE_DEVICES not set')
-MODEL_NAME = 'blogcatalog'
+MODEL_NAME = os.path.split(__file__)[-1][:-3]
 MODEL_PATH = os.path.join(settings.BENCHMARKS_PATH, MODEL_NAME)
 if not os.path.exists(MODEL_PATH):
     os.mkdir(MODEL_PATH)
