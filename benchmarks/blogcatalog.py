@@ -7,7 +7,7 @@ import numpy as np
 import networkx as nx
 
 import keras
-from keras_tqdm import TQDMNotebookCallback as TQDMCallback
+from keras_tqdm import TQDMCallback
 
 from nw2vec import ae
 from nw2vec import utils
@@ -16,6 +16,9 @@ import settings
 
 
 # ### PARAMETERS ###
+
+# Data
+crop = None
 
 # Model
 n_ξ_samples = 5
@@ -44,8 +47,6 @@ if not os.path.exists(MODEL_PATH):
 # ### LOAD DATA ###
 
 # ## Get the full list of nodes and groups ##
-
-crop = None
 
 # nodes
 nodes = []
@@ -108,6 +109,7 @@ if crop is None:
 # ## Update model parameters ##
 dim_data = len(groups)
 dims = (dim_data, dim_l1, dim_ξ)
+DATA_PARAMETERS = 'crop={crop}'.format(crop=crop)
 VAE_PARAMETERS = (
     'n_ξ_samples={n_ξ_samples}'
     '-dims={dims}'
@@ -125,7 +127,9 @@ TRAINING_PARAMETERS = (
                                    neighbour_samples=neighbour_samples,
                                    n_epochs=n_epochs)
 MODEL_DATA = os.path.join(MODEL_PATH,
-                          VAE_PARAMETERS + '---' + TRAINING_PARAMETERS)
+                          DATA_PARAMETERS + '---' +
+                          VAE_PARAMETERS + '---' +
+                          TRAINING_PARAMETERS)
 
 
 # ### DEFINE TRAINING LABELS ###
@@ -200,5 +204,5 @@ history = vae.fit_generator_feed(
 
 # ### SAVE HISTORY ###
 
-with open(MODEL_DATA + '.history.pkl', 'wb') as outfile:
-    pickle.dump(history, outfile)
+with open(MODEL_DATA + '.results.pkl', 'wb') as outfile:
+    pickle.dump({'history': history.history}, outfile)
