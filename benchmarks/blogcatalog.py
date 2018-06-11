@@ -12,7 +12,7 @@ from keras_tqdm import TQDMNotebookCallback as TQDMCallback
 from nw2vec import ae
 from nw2vec import utils
 from nw2vec import batching
-from nw2vec import settings
+import settings
 
 
 # ### PARAMETERS ###
