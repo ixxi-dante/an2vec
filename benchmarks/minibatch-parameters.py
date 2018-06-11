@@ -29,6 +29,7 @@ dim_l1, dim_ξ = 10, 2
 use_bias = False
 
 # Training
+n_runs = 4
 n_epochs = 1000
 seeds_per_batch = 10
 grid_max_walk_length = [int(community_size * .2), int(community_size * .5),
@@ -52,7 +53,7 @@ if not os.path.exists(MODEL_PATH):
     os.mkdir(MODEL_PATH)
 
 
-def train(max_walk_length, p, q):
+def train(max_walk_length, p, q, run):
     # ### DEFINE TRAINING DATA ###
 
     g = nx.planted_partition_graph(n_communities, community_size, p_in, p_out)
@@ -87,11 +88,13 @@ def train(max_walk_length, p, q):
         '-p={p}'
         '-q={q}'
         '-neighbour_samples={neighbour_samples}'
-        '-n_epochs={n_epochs}').format(seeds_per_batch=seeds_per_batch,
-                                       max_walk_length=max_walk_length,
-                                       p=p, q=q,
-                                       neighbour_samples=neighbour_samples,
-                                       n_epochs=n_epochs)
+        '-n_epochs={n_epochs}'
+        '-run={run}').format(seeds_per_batch=seeds_per_batch,
+                             max_walk_length=max_walk_length,
+                             p=p, q=q,
+                             neighbour_samples=neighbour_samples,
+                             n_epochs=n_epochs,
+                             run=run)
     MODEL_DATA = os.path.join(MODEL_PATH,
                               DATA_PARAMETERS + '---' +
                               VAE_PARAMETERS + '---' +
@@ -168,4 +171,5 @@ def train(max_walk_length, p, q):
 
 for max_walk_length in tqdm(grid_max_walk_length):
     for (p, q) in tqdm(grid_pq):
-        train(max_walk_length, p, q)
+        for run in tqdm(range(n_runs)):
+            train(max_walk_length, p, q, run)
