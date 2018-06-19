@@ -112,7 +112,7 @@ def scale_center(x, norm='l2'):
     assert norm in ['l1', 'l2']
     x = x - x.mean(1, keepdims=True)
     if norm == 'l1':
-        x_norm = x.sum(1, keepdims=True)
+        x_norm = np.abs(x).sum(1, keepdims=True)
     if norm == 'l2':
         x_norm = np.sqrt((x ** 2).sum(1, keepdims=True))
     return x / x_norm

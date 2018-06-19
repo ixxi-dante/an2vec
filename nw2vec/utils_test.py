@@ -89,9 +89,35 @@ def test_grouper():
     assert list(map(list, utils.grouper(range(5), 10))) == [[0, 1, 2, 3, 4]]
 
 
-@pytest.mark.skip(reason='Implement test')
 def test_scale_center():
-    pass
+    # l2-norm works
+    x = np.array([[1, 2, 3, 4],
+                  [.5, 1, 1.5, 2],
+                  [0, 0, 0, 1]])
+    assert_allclose(utils.scale_center(x),
+                    [[-0.67082039, -0.2236068, 0.2236068, 0.67082039],
+                     [-0.67082039, -0.2236068, 0.2236068, 0.67082039],
+                     [-0.28867513, -0.28867513, -0.28867513, 0.8660254]],
+                    atol=1e-6)
+    # And doesn't affect the original array
+    assert_array_equal(x, np.array([[1, 2, 3, 4],
+                                    [.5, 1, 1.5, 2],
+                                    [0, 0, 0, 1]]))
+
+    # l1-norm works
+    assert_allclose(utils.scale_center(x, norm='l1'),
+                    [[-0.375, -0.125,  0.125,  0.375],
+                     [-0.375, -0.125,  0.125,  0.375],
+                     [-0.16666667, -0.16666667, -0.16666667,  0.5]],
+                    atol=1e-6)
+    # And doesn't affect the original array
+    assert_array_equal(x, np.array([[1, 2, 3, 4],
+                                    [.5, 1, 1.5, 2],
+                                    [0, 0, 0, 1]]))
+
+    # Other norms are unknown
+    with pytest.raises(AssertionError):
+        utils.scale_center(x, norm='unknown')
 
 
 @pytest.mark.skip(reason='Implement test')
