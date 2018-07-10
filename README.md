@@ -32,17 +32,20 @@ it only includes the top-level required packages without versions, and conda wil
 
 `environment.lock-grunchgpu.yml` is a copy of `environment.lock.yml` that uses a GPU-enabled version of TensorFlow 1.6, optimised for LIP's `grunch` machine; it will most probably only work on that machine.
 
-Finally, if you make changes to the Rust extensions (in `rust-utils`), make sure to run `pip install -e .` to recompile.
+Finally, if you make changes to the Rust extensions (in `nw2vec-rust`), make sure to run `pip install -e .` to recompile.
 
 Analyses
 --------
 
-Have a look at the [wiki](https://github.com/ixxi-dante/nw2vec/wiki) and the [projects](https://github.com/ixxi-dante/nw2vec/projects) to track current progress.
+You can have a look at the [wiki](https://github.com/ixxi-dante/nw2vec/wiki).
+The `projects/` folder contains all the notebooks and scripts for the repo's [projects](https://github.com/ixxi-dante/nw2vec/projects), and is probably the most interesting thing to look at.
+The `data/` folder contains any data that may be produced by those analyses.
+
 For now, we don't use the Twitter data in the `datasets/` folder, so you can ignore the sections below this and jump directly to the wiki or the projects after having installed the environment.
 If, however, you want to play with the Twitter data, read on.
 
-Data folders
-------------
+Datasets folders
+----------------
 
 After running `./setup-datasets.sh`, the `datasets/` folder contains pointers to all the data we process and the outputs of processing:
 
