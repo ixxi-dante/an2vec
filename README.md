@@ -13,7 +13,7 @@ rustup toolchain install nightly
 rustup override set nightly
 ```
 
-Second, run `./setup-datasets.sh` to set up the test datasets in the `data/` folder.
+Second, run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
 
 Next, using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 
@@ -37,17 +37,17 @@ Finally, if you make changes to the Rust extensions (in `rust-utils`), make sure
 Analyses
 --------
 
-Have a look at the [wiki](https://github.com/ixxi-dante/nw2vec/wiki) to track current progress.
-For now, we don't use anything in the `data/` folder, so you can ignore the sections below this and jump directly to the wiki after having installed the environment.
+Have a look at the [wiki](https://github.com/ixxi-dante/nw2vec/wiki) and the [projects](https://github.com/ixxi-dante/nw2vec/projects) to track current progress.
+For now, we don't use the Twitter data in the `datasets/` folder, so you can ignore the sections below this and jump directly to the wiki or the projects after having installed the environment.
 If, however, you want to play with the Twitter data, read on.
 
 Data folders
 ------------
 
-After running `./setup-datasets.sh`, the `data/` folder contains pointers to all the data we process and the outputs of processing:
+After running `./setup-datasets.sh`, the `datasets/` folder contains pointers to all the data we process and the outputs of processing:
 
 ```
-data
+datasets
 ├── karate                   # Test networks
 ├── malariaDBLaNetworks2013  #
 ├── BlogCatalog-dataset      #
@@ -63,34 +63,34 @@ data
       -> /warehouse/COMPLEXNET/nw2vec/sosweet-w2v
 ```
 
-To set these up, and assuming you have access to the raw Twitter data in `data/sosweet-raw`:
+To set these up, and assuming you have access to the raw Twitter data in `datasets/sosweet-raw`:
 
 * Compute the word2vec embeddings: TODO: document
 * Extract the networks of users: TODO: document
-* Compute the network embeddings by running the `sosweet-node2vec.ipynb` notebook
+* Compute the network embeddings by running the `projects/scratchpads/sosweet-node2vec.ipynb` notebook
 * Extract the raw text of tweets:
 ```bash
-scripts/iter-gz \
+sosweet-scripts/iter-gz \
     --no-gzip \
-    scripts/pipe-user_timestamp_body-csv \
-    data/sosweet-text \
-    $(ls data/sosweet-raw/2016*.tgz data/sosweet-raw/2017*.tgz)
+    sosweet-scripts/pipe-user_timestamp_body-csv \
+    datasets/sosweet-text \
+    $(ls datasets/sosweet-raw/2016*.tgz datasets/sosweet-raw/2017*.tgz)
 ```
 * Extract the user ids for the 5-mutual-mention network:
 ```bash
-cat data/sosweet-network/undir_weighted_mention_network_thresh_5.txt \
-    | scripts/pipe-unique_users \
-    > data/sosweet-network/undir_weighted_mention_network_thresh_5.users.txt
+cat datasets/sosweet-network/undir_weighted_mention_network_thresh_5.txt \
+    | sosweet-scripts/pipe-unique_users \
+    > datasets/sosweet-network/undir_weighted_mention_network_thresh_5.users.txt
 ```
 * Filter the raw text of tweets for only those users:
 ```bash
 # Create the destination folder
-mkdir -p data/sosweet-text/undir_weighted_mention_network_thresh_5
+mkdir -p datasets/sosweet-text/undir_weighted_mention_network_thresh_5
 # Run the filter
-scripts/iter-gz \
+sosweet-scripts/iter-gz \
     --no-gzip \
-    "scripts/pipe-filter_users data/sosweet-network/undir_weighted_mention_network_thresh_5.users.txt" \
-    data/sosweet-text/undir_weighted_mention_network_thresh_5 \
-    $(ls data/sosweet-text/*-csv)
+    "sosweet-scripts/pipe-filter_users datasets/sosweet-network/undir_weighted_mention_network_thresh_5.users.txt" \
+    datasets/sosweet-text/undir_weighted_mention_network_thresh_5 \
+    $(ls datasets/sosweet-text/*-csv)
 ```
 

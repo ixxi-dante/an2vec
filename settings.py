@@ -2,4 +2,5 @@ import os
 
 
 DATA_PATH = 'data'
-BENCHMARKS_PATH = os.path.join(DATA_PATH, 'benchmarks')
+BEHAVIOUR_PATH = os.path.join(DATA_PATH, 'behaviour')
+SCALE_PATH = os.path.join(DATA_PATH, 'scale')
