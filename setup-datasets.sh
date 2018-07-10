@@ -2,12 +2,12 @@
 
 echo "Unzipping compressed data sets..."
 echo
-unzip data/malariaDBLaNetworks2013.zip -d data/malariaDBLaNetworks2013 -x "__MACOSX/*"
+unzip datasets/malariaDBLaNetworks2013.zip -d datasets/malariaDBLaNetworks2013 -x "__MACOSX/*"
 echo
-unzip data/BlogCatalog-dataset.zip -d data
+unzip datasets/BlogCatalog-dataset.zip -d datasets
 echo
-unzip data/Flickr-dataset.zip -d data
+unzip datasets/Flickr-dataset.zip -d datasets
 echo
-unzip data/YouTube-dataset.zip -d data
+unzip datasets/YouTube-dataset.zip -d datasets
 echo
 echo "All done!"
