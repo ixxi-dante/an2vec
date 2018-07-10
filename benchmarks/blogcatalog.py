@@ -21,14 +21,14 @@ import settings
 crop = None
 
 # Model
-n_ξ_samples = 5
+n_ξ_samples = 1
 dim_l1, dim_ξ = 10, 2
 use_bias = False
 
 # Training
-n_epochs = 10
-seeds_per_batch = 10
-max_walk_length = 100
+n_epochs = 20000
+# seeds_per_batch = len(nodes) -> defined below
+max_walk_length = 1
 p = 1
 q = 1
 neighbour_samples = 30
@@ -107,6 +107,7 @@ if crop is None:
         groups
 
 # ## Update model parameters ##
+seeds_per_batch = len(nodes)
 dim_data = len(groups)
 dims = (dim_data, dim_l1, dim_ξ)
 DATA_PARAMETERS = 'crop={crop}'.format(crop=crop)
@@ -191,12 +192,14 @@ history = vae.fit_generator_feed(
     verbose=0,
     callbacks=[
         # keras.callbacks.TensorBoard(),
-        ae.ModelBatchCheckpoint(MODEL_DATA + '.batch-checkpoint.h5',
-                                monitor='loss', period=10,
-                                save_best_only=True),
+        #ae.ModelBatchCheckpoint(MODEL_DATA + '.batch-checkpoint.epoch={epoch:05d}-batch={batch:05d}-loss={loss:.2f}.h5',
+        #                        monitor='loss', period=50,
+        #                        #save_best_only=True
+        #                        ),
         keras.callbacks.ModelCheckpoint(MODEL_DATA + '.epoch-checkpoint.h5',
-                                        monitor='loss', period=10,
-                                        save_best_only=True),
+                                        monitor='loss',# period=1,
+                                        save_best_only=True
+                                        ),
         TQDMCallback(),
     ]
 )

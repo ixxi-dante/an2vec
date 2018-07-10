@@ -1,5 +1,6 @@
 import os
 import pickle
+import warnings
 
 import numpy as np
 import networkx as nx
@@ -99,6 +100,10 @@ def train(max_walk_length, p, q, run):
                               DATA_PARAMETERS + '---' +
                               VAE_PARAMETERS + '---' +
                               TRAINING_PARAMETERS)
+    MODEL_RESULTS = MODEL_DATA + '.results.pkl'
+    if os.path.exists(MODEL_RESULTS):
+        warnings.warn('"{}" already exist, skipping.'.format(MODEL_RESULTS))
+        return
 
     # ### BUILD THE VAE ###
 
@@ -160,7 +165,7 @@ def train(max_walk_length, p, q, run):
     x, _, feeds = next(batching.batches(vae, adj, features, target_func,
                                         adj.shape[0], 1, p=1, q=1, neighbour_samples=None))
     embeddings, adj_pred, features_pred = vae.predict_on_fed_batch(x, feeds=feeds)
-    with open(MODEL_DATA + '.results.pkl', 'wb') as outfile:
+    with open(MODEL_RESULTS, 'wb') as outfile:
         pickle.dump({'history': history.history,
                      'labels': labels,  'features': features, 'adj': adj,
                      'embeddings': embeddings,
