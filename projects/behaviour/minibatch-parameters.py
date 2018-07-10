@@ -76,8 +76,11 @@ def train(max_walk_length, p, q, run):
         'n_communities={n_communities}'
         '-community_size={community_size}'
         '-p_in={p_in}'
-        '-p_out={p_out}').format(n_communities=n_communities, community_size=community_size,
-                                 p_in=p_in, p_out=p_out)
+        '-p_out={p_out}'
+        '-features_noise_scale={features_noise_scale}').format(n_communities=n_communities,
+                                                               community_size=community_size,
+                                                               p_in=p_in, p_out=p_out,
+                                                               features_noise_scale=features_noise_scale)
     VAE_PARAMETERS = (
         'n_ξ_samples={n_ξ_samples}'
         '-dims={dims}'
