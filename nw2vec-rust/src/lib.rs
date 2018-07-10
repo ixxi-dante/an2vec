@@ -36,7 +36,7 @@ fn array_split(strings: &[String], sep: &str, parallel: bool)
     Ok(splits)
 }
 
-#[pymodinit(_rust_utils)]
+#[pymodinit(_nw2vec_rust)]
 fn init_mod(py: Python, m: &PyModule) -> PyResult<()> {
 
     #[pyfn(m, "array_split", parallel= "true")]

@@ -1,4 +1,4 @@
-from ._rust_utils import array_split
+from ._nw2vec_rust import array_split
 from . import layers
 from . import codecs
 
