@@ -3,6 +3,8 @@ Node-word-2vec [![Build Status](https://travis-ci.org/ixxi-dante/nw2vec.svg?bran
 
 Bring those two things together! Do cool context- and language-aware stuff! Okay, let's fill this a little more precisely now.
 
+This repository uses [Git Large File Storage](https://git-lfs.github.com/) (Git-LFS) to store large files. You will have to install Git-LFS to clone the entire contents of the repository.
+
 Setup
 -----
 
