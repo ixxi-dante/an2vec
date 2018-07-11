@@ -1,9 +1,9 @@
-from ._nw2vec_rust import array_split
+# from ._nw2vec_rust import array_split
 from . import layers
 from . import codecs
 
 
-__all__ = ['array_split', 'custom_objects']
+__all__ = ['custom_objects']  # , 'array_split']
 
 
 def custom_objects():
