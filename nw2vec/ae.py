@@ -212,7 +212,7 @@ class Model(keras.Model):
         """Trains the model on data generated batch-by-batch by a Python generator
         or an instance of `Sequence`.
 
-        See `Model.fig_generator()` for the full documentation.
+        See `Model.fit_generator()` for the full documentation.
 
         The only difference here is that the generator must also generate data for
         any native placeholders of the model.
