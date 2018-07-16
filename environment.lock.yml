@@ -228,7 +228,7 @@ dependencies:
     - snakeviz==0.4.2
     - vprof==0.37.6
     - "git+https://github.com/ixxi-dante/keras@b50534bd55151c72782ecc630e21bb2e4d9a68d7#egg=keras"
-    - "git+https://github.com/ixxi-dante/jwalk@fd8d2e83cf5726dfcba96b6ff6991e4cd974d594#egg=jwalk"
+    - "git+https://github.com/ixxi-dante/jwalk@03aac5dc0bd6d2dad496a00e4d0dc127ef2c87c0#egg=jwalk"
     - "--editable=."
 prefix: /home/sl/.conda/envs/base36
 
