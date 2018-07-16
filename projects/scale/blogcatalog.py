@@ -26,7 +26,7 @@ dim_l1, dim_ξ = 10, 2
 use_bias = False
 
 # Training
-n_epochs = 20000
+n_epochs = 10000
 # seeds_per_batch = len(nodes) -> defined below
 max_walk_length = 1
 p = 1
