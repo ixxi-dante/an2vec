@@ -50,7 +50,7 @@ if not os.path.exists(MODEL_PATH):
 
 # nodes
 nodes = []
-with open('data/BlogCatalog-dataset/data/nodes.csv') as csvfile:
+with open('datasets/BlogCatalog-dataset/data/nodes.csv') as csvfile:
     reader = csv.reader(csvfile)
     nodes = [int(row[0]) for row in reader]
 if crop is not None:
@@ -60,7 +60,7 @@ nodes = set(nodes)
 
 # groups
 groups = []
-with open('data/BlogCatalog-dataset/data/groups.csv') as csvfile:
+with open('datasets/BlogCatalog-dataset/data/groups.csv') as csvfile:
     reader = csv.reader(csvfile)
     groups = [int(row[0]) for row in reader]
 assert len(groups) == len(set(groups))
@@ -71,7 +71,7 @@ groups = set(groups)
 
 # Read edges.csv and make a network out of it
 edges = defaultdict(list)
-with open('data/BlogCatalog-dataset/data/edges.csv') as csvfile:
+with open('datasets/BlogCatalog-dataset/data/edges.csv') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         if crop is not None:
@@ -86,7 +86,7 @@ if crop is not None:
 
 # Read group-edges.csv and add that info to each node
 group_edges = defaultdict(list)
-with open('data/BlogCatalog-dataset/data/group-edges.csv') as csvfile:
+with open('datasets/BlogCatalog-dataset/data/group-edges.csv') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         if crop is not None:
