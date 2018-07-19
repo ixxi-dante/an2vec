@@ -8,6 +8,8 @@ This repository uses [Git Large File Storage](https://git-lfs.github.com/) (Git-
 Setup
 -----
 
+TODO: document git-annex setup
+
 First, make sure you have Rust nightly and that it's the default toolchain in the current directory:
 
 ```bash
