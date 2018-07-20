@@ -112,6 +112,28 @@ class Gaussian(Codec):
                      - self.dim)
 
 
+class SigmoidBernoulli(Codec):
+
+    def __init__(self, params):
+        """TODOC"""
+        super(SigmoidBernoulli, self).__init__(params)
+        self.logits = params
+
+    # TOTEST
+    def logprobability(self, v):
+        """TODOC"""
+        # This implementation is only valid for vectors as input
+
+        # Check shapes and broadcast
+        v = broadcast_left(v, self.logits)
+        # `v` now has shape (batch, sampling, dim(vectors))
+        assert len(v.shape) == 3  # If this fails, change it to a dynamic check
+
+        sigmoid_cross_entropies = tf.nn.sigmoid_cross_entropy_with_logits(labels=v,
+                                                                          logits=self.logits)
+        return - K.sum(sigmoid_cross_entropies, axis=-1)
+
+
 class SigmoidBernoulliAdjacency(Codec):
 
     def __init__(self, params):
