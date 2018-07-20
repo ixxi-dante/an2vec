@@ -22,7 +22,7 @@ n_communities = 20
 community_size = 100
 p_in = .4
 p_out = .01
-features_noise_scale = 1.5
+features_noise_scale = 0
 
 # Model
 n_ξ_samples = 5
@@ -125,8 +125,6 @@ def train(max_walk_length, p, q, run):
     )
 
     # ### DEFINE TRAINING OBJECTIVES ###
-
-    features = utils.scale_center(labels)
 
     def target_func(batch_adj, required_nodes, final_nodes):
         return [
