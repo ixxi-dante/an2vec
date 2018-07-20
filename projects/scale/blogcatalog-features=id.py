@@ -146,6 +146,8 @@ labels = np.eye(len(nodes))
 #     labels[n - nodes_offset, np.array(data['groups']) - groups_offset] = 1
 # # labels += np.random.normal(scale=.2, size=labels.shape)
 
+features = utils.scale_center(labels)
+
 
 # ### BUILD THE VAE ###
 
@@ -166,9 +168,6 @@ vae, vae_codecs = ae.build_vae(
 
 
 # ### DEFINE TRAINING OBJECTIVES ###
-
-features = utils.scale_center(labels)
-
 
 def target_func(batch_adj, required_nodes, final_nodes):
     return [
