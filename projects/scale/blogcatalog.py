@@ -22,10 +22,11 @@ crop = None
 
 # Model
 n_ξ_samples = 1
-dim_l1, dim_ξ = 10, 2
+dim_l1, dim_ξ = 10, 10
 use_bias = False
 
 # Training
+loss_weights = [1.0, 1000.0, 1.0]  # q, p_adj, p_v
 n_epochs = 10000
 # seeds_per_batch = len(nodes) -> defined below
 max_walk_length = 1
@@ -117,12 +118,14 @@ VAE_PARAMETERS = (
     '-bias={use_bias}').format(n_ξ_samples=n_ξ_samples,
                                dims=dims, use_bias=use_bias)
 TRAINING_PARAMETERS = (
-    'seeds_per_batch={seeds_per_batch}'
+    'loss_weights={loss_weights}'
+    '-seeds_per_batch={seeds_per_batch}'
     '-WL={max_walk_length}'
     '-p={p}'
     '-q={q}'
     '-neighbour_samples={neighbour_samples}'
-    '-n_epochs={n_epochs}').format(seeds_per_batch=seeds_per_batch,
+    '-n_epochs={n_epochs}').format(loss_weights=loss_weights,
+                                   seeds_per_batch=seeds_per_batch,
                                    max_walk_length=max_walk_length,
                                    p=p, q=q,
                                    neighbour_samples=neighbour_samples,
@@ -142,6 +145,8 @@ for n, data in g.nodes.items():
     labels[n - nodes_offset, np.array(data['groups']) - groups_offset] = 1
 # labels += np.random.normal(scale=.2, size=labels.shape)
 
+features = utils.scale_center(labels)
+
 
 # ### BUILD THE VAE ###
 
@@ -153,18 +158,11 @@ vae, vae_codecs = ae.build_vae(
     (q_model, q_codecs),
     p_builder,
     n_ξ_samples,
-    [
-        1.0,  # q loss
-        1.0,  # p adj loss
-        1.0,  # p v loss
-    ],
+    loss_weights
 )
 
 
 # ### DEFINE TRAINING OBJECTIVES ###
-
-features = utils.scale_center(labels)
-
 
 def target_func(batch_adj, required_nodes, final_nodes):
     return [
