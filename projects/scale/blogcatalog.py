@@ -26,7 +26,7 @@ dim_l1, dim_ξ = 10, 10
 use_bias = False
 
 # Training
-loss_weights = [1.0, 1000.0, 1.0]  # q, p_adj, p_v
+loss_weights = [1.0, 1.0, 1.0]  # q, p_adj, p_v
 n_epochs = 10000
 # seeds_per_batch = len(nodes) -> defined below
 max_walk_length = 1
