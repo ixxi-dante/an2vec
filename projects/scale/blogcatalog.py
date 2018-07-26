@@ -113,7 +113,8 @@ dim_data = len(groups)
 dims = (dim_data, dim_l1, dim_ξ)
 DATA_PARAMETERS = 'crop={crop}'.format(crop=crop)
 VAE_PARAMETERS = (
-    'n_ξ_samples={n_ξ_samples}'
+    'no_adj_cross_entropy_weighing'
+    '-n_ξ_samples={n_ξ_samples}'
     '-dims={dims}'
     '-bias={use_bias}').format(n_ξ_samples=n_ξ_samples,
                                dims=dims, use_bias=use_bias)
