@@ -151,17 +151,12 @@ class SigmoidBernoulliAdjacency(Codec):
         # `adj` now has shape (batch or 1, sampling, batch, batch)
         assert len(adj.shape) == 4  # If this fails, change it to a dynamic check
 
-        # FIXME: temporary change for #38
-        # density = K.mean(adj)
-        # weighted_sigmoid_cross_entropies = (
-        #     .5
-        #     * tf.nn.weighted_cross_entropy_with_logits(
-        #         targets=adj, logits=self.logits, pos_weight=(1 / density) - 1)
-        #     / (1 - density)
-        # )
+        # #38 showed that weighing links and non-links so that they each contribute 1/2
+        # gives a worse result on BlogCatalog than not weighing them flat. See
+        # https://github.com/ixxi-dante/nw2vec/commit/3bba9c8fdd5afd66a593a61bf8473b8f794e28fb
+        # for the change which led to this version.
         weighted_sigmoid_cross_entropies = \
             tf.nn.sigmoid_cross_entropy_with_logits(labels=adj, logits=self.logits)
-        # FIXME: end temporary change for #38
 
         return - K.mean(K.sum(weighted_sigmoid_cross_entropies, axis=-1), axis=-1)
 
