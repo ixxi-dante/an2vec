@@ -3,12 +3,8 @@ Node-word-2vec [![Build Status](https://travis-ci.org/ixxi-dante/nw2vec.svg?bran
 
 Bring those two things together! Do cool context- and language-aware stuff! Okay, let's fill this a little more precisely now.
 
-This repository uses [Git Large File Storage](https://git-lfs.github.com/) (Git-LFS) to store large files. You will have to install Git-LFS to clone the entire contents of the repository.
-
 Setup
 -----
-
-TODO: document git-annex setup
 
 First, run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
 
@@ -28,6 +24,12 @@ To upgrade packages in that environment, use `environment.yml` instead:
 it only includes the top-level required packages without versions, and conda will resolve to updated package versions.
 
 `environment.lock-grunchgpu.yml` is a copy of `environment.lock.yml` that uses a GPU-enabled version of TensorFlow 1.6, optimised for LIP's `grunch` machine; it will most probably only work on that machine.
+
+### Managing large data files
+
+TODO: document this
+
+This repository uses [git-annex](https://git-annex.branchable.com/) to manage large data files. Currently this isn't documented, but ask me for details if you need to set this up and we'll make some docs.
 
 ### Optional Rust extension
 
