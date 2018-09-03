@@ -10,14 +10,7 @@ Setup
 
 TODO: document git-annex setup
 
-First, make sure you have Rust nightly and that it's the default toolchain in the current directory:
-
-```bash
-rustup toolchain install nightly
-rustup override set nightly
-```
-
-Second, run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
+First, run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
 
 Next, using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 
@@ -36,7 +29,17 @@ it only includes the top-level required packages without versions, and conda wil
 
 `environment.lock-grunchgpu.yml` is a copy of `environment.lock.yml` that uses a GPU-enabled version of TensorFlow 1.6, optimised for LIP's `grunch` machine; it will most probably only work on that machine.
 
-Finally, if you make changes to the Rust extensions (in `nw2vec-rust`), make sure to run `pip install -e .` to recompile.
+### Optional Rust extension
+
+We started some work on a Rust extension (in `nw2vec-rust`), but it is currently disabled. This will be used in the future to speed up string parsing on the SoSweet dataset.
+Now if you want to work on that, install Rust nightly and make it default toolchain in the current directory:
+
+```bash
+rustup toolchain install nightly
+rustup override set nightly
+```
+
+Finally, make sure to run `pip install -e .` whenever you make a change to the extension, to recompile the code and give Python access to it.
 
 Analyses
 --------
