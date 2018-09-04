@@ -115,14 +115,14 @@ class Gaussian(Codec):
                      - self.dim)
 
 
-class SimpleGaussian(Codec):
+class OrthogonalGaussian(Codec):
 
     """TODOC"""
 
     def __init__(self, params):
         """TODOC"""
 
-        super(SimpleGaussian, self).__init__(params)
+        super(OrthogonalGaussian, self).__init__(params)
 
         # Check the flattened parameters have the right shape
         concat_dim = int(params.shape[-1])
