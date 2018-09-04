@@ -28,7 +28,10 @@ class Codec:
         # `y_pred` has shape (batch, sampling[, ...]+), but `y_true` can
         # be less than that if values are repeated (in which case
         # `self.logprobability()` will broadcast it)
-        assert y_pred == self.params
+        if isinstance(y_pred, np.ndarray):
+            assert (y_pred == self.params).all()
+        else:
+            assert y_pred == self.params
         logprobability = self.logprobability(y_true)
         # We're left with the batch axis + sampling axis. Whatever other
         # inner dimensions there were in `y_pred` should be averaged
