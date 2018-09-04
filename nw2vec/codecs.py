@@ -115,6 +115,64 @@ class Gaussian(Codec):
                      - self.dim)
 
 
+class SimpleGaussian(Codec):
+
+    """TODOC"""
+
+    def __init__(self, params):
+        """TODOC"""
+
+        super(SimpleGaussian, self).__init__(params)
+
+        # Check the flattened parameters have the right shape
+        concat_dim = int(params.shape[-1])
+        assert concat_dim % 2 == 0
+        # Extract the separate parameters
+        self.dim = concat_dim // 2
+        outer_slices = [slice(None)] * (len(params.shape) - 1)
+        μ_flat = params[outer_slices + [slice(self.dim)]]
+        logD_flat = params[outer_slices + [slice(self.dim, 2 * self.dim)]]
+
+        # Prepare the D matrix
+        D = tf.matrix_diag(K.exp(logD_flat))
+        D_inv = tf.matrix_diag(K.exp(- logD_flat))
+        D_inv_sqrt = tf.matrix_diag(K.exp(- .5 * logD_flat))
+
+        self.μ = K.expand_dims(μ_flat, -1)
+        self.R = D_inv_sqrt
+        self.C_inv = D
+        self.C = D_inv
+        self.logdetC = - K.sum(logD_flat, axis=-1)
+
+    # TOTEST
+    def stochastic_value(self, n_samples):
+        """TODOC"""
+        μ_shape = tf.shape(self.μ)
+        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0))
+        return K.squeeze(expand_dims_tile(self.μ, -3, n_samples)
+                         + expand_dims_tile(self.R, -3, n_samples) @ ε,
+                         -1)
+
+    # TOTEST
+    def logprobability(self, v):
+        """TODOC"""
+        # Turn `v` into a column vector
+        v = K.expand_dims(v, -1)
+        # Check shapes and broadcast
+        v = broadcast_left(v, self.μ)
+        return - .5 * (self.dim * np.log(2 * np.pi) + self.logdetC
+                       + right_squeeze2(tf.matrix_transpose(v - self.μ)
+                                        @ self.C_inv
+                                        @ (v - self.μ)))
+
+    # TOTEST
+    def kl_to_normal(self):
+        """TODOC"""
+        return .5 * (tf.trace(self.C) - self.logdetC
+                     + right_squeeze2(tf.matrix_transpose(self.μ) @ self.μ)
+                     - self.dim)
+
+
 class SigmoidBernoulli(Codec):
 
     def __init__(self, params):
