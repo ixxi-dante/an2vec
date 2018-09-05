@@ -9,6 +9,7 @@ import networkx as nx
 import keras
 from keras_tqdm import TQDMCallback
 
+from nw2vec import layers
 from nw2vec import ae
 from nw2vec import utils
 from nw2vec import batching
@@ -27,7 +28,7 @@ use_bias = False
 
 # Training
 loss_weights = [1.0, 1.0, 1.0]  # q, p_adj, p_v
-n_epochs = 10000
+n_epochs = 20000
 # seeds_per_batch = len(nodes) -> defined below
 max_walk_length = 1
 p = 1
@@ -113,7 +114,9 @@ dim_data = len(groups)
 dims = (dim_data, dim_l1, dim_ξ)
 DATA_PARAMETERS = 'crop={crop}'.format(crop=crop)
 VAE_PARAMETERS = (
-    'no_adj_cross_entropy_weighing'
+    'orth'
+    '-adj_xew=False'
+    '-feature_decoder=Bernoulli'
     '-n_ξ_samples={n_ξ_samples}'
     '-dims={dims}'
     '-bias={use_bias}').format(n_ξ_samples=n_ξ_samples,
@@ -152,9 +155,45 @@ features = utils.scale_center(labels)
 # ### BUILD THE VAE ###
 
 n_nodes = len(nodes)
-adj = nx.adjacency_matrix(g).astype(np.float32)
-q_model, q_codecs = ae.build_q(dims, use_bias=use_bias)
-p_builder = ae.build_p_builder(dims, use_bias=use_bias)
+nx_node_ordering = np.array(sorted([[n - 1, i] for i, n in enumerate(g.nodes)]))[:, 1]
+adj = nx.adjacency_matrix(g).astype(np.float32)[nx_node_ordering, :][:, nx_node_ordering]
+
+def build_q(dims, use_bias=False):
+    dim_data, dim_l1, dim_ξ = dims
+
+    q_input = keras.layers.Input(shape=(dim_data,), name='q_input')
+    # CANDO: change activation
+    q_layer1_placeholders, q_layer1 = ae.gc_layer_with_placeholders(
+        dim_l1, 'q_layer1', {'use_bias': use_bias, 'activation': 'relu'}, q_input)
+    q_μ_flat_placeholders, q_μ_flat = ae.gc_layer_with_placeholders(
+        dim_ξ, 'q_mu_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+    q_logD_flat_placeholders, q_logD_flat = ae.gc_layer_with_placeholders(
+        dim_ξ, 'q_logD_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+    q_μlogD_flat = keras.layers.Concatenate(name='q_mulogD_flat')(
+        [q_μ_flat, q_logD_flat])
+    q_model = ae.Model(inputs=([q_input]
+                               + q_layer1_placeholders
+                               + q_μ_flat_placeholders
+                               + q_logD_flat_placeholders),
+                       outputs=q_μlogD_flat)
+
+    return q_model, ('OrthogonalGaussian',)
+
+q_model, q_codecs = build_q(dims, use_bias=use_bias)
+
+def p_builder(p_input):
+    # CANDO: change activation
+    p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
+                                  kernel_regularizer='l2', bias_regularizer='l2',
+                                  name='p_layer1')(p_input)
+    p_adj = layers.Bilinear(0, use_bias=use_bias,
+                            kernel_regularizer='l2', bias_regularizer='l2',
+                            name='p_adj')([p_layer1, p_layer1])
+    p_v = keras.layers.Dense(dim_data, use_bias=use_bias,
+                             kernel_regularizer='l2', bias_regularizer='l2',
+                             name='p_v')(p_layer1)
+    return ([p_adj, p_v], ('SigmoidBernoulliAdjacency', 'SigmoidBernoulli'))
+
 vae, vae_codecs = ae.build_vae(
     (q_model, q_codecs),
     p_builder,
@@ -173,7 +212,7 @@ def target_func(batch_adj, required_nodes, final_nodes):
                                    0, n_ξ_samples),
             0, 1
         ),
-        utils.expand_dims_tile(features[final_nodes], 1, n_ξ_samples),
+        utils.expand_dims_tile(labels[final_nodes], 1, n_ξ_samples),
     ]
 
 
