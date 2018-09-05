@@ -134,7 +134,7 @@ def train(max_walk_length, p, q, run):
                                        0, n_ξ_samples),
                 0, 1
             ),
-            utils.expand_dims_tile(features[final_nodes], 1, n_ξ_samples),
+            utils.expand_dims_tile(labels[final_nodes], 1, n_ξ_samples),
         ]
 
     # ### TRAIN ###
