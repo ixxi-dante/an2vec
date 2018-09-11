@@ -9,6 +9,7 @@ from tqdm import tqdm
 import keras
 from keras_tqdm import TQDMCallback
 
+from nw2vec import layers
 from nw2vec import ae
 from nw2vec import utils
 from nw2vec import batching
@@ -19,10 +20,10 @@ import settings
 
 # Data
 n_communities = 20
-community_size = 100
+community_size = 50
 p_in = .4
 p_out = .01
-features_noise_scale = 0
+features_noise_scale = .8
 
 # Model
 n_ξ_samples = 5
@@ -30,8 +31,8 @@ dim_l1, dim_ξ = 10, 2
 use_bias = False
 
 # Training
-n_runs = 4
-n_epochs = 1000
+n_runs = 1
+n_epochs = 500
 seeds_per_batch = 10
 grid_max_walk_length = [int(community_size * .2), int(community_size * .5),
                         int(community_size * .8), community_size,
@@ -77,21 +78,23 @@ def train(max_walk_length, p, q, run):
         '-community_size={community_size}'
         '-p_in={p_in}'
         '-p_out={p_out}'
-        '-features_noise_scale={features_noise_scale}').format(n_communities=n_communities,
+        '-fns={features_noise_scale}').format(n_communities=n_communities,
                                                                community_size=community_size,
                                                                p_in=p_in, p_out=p_out,
                                                                features_noise_scale=features_noise_scale)
     VAE_PARAMETERS = (
-        'n_ξ_samples={n_ξ_samples}'
+        'orth'
+        '-adj_scaling'
+        '-n_ξ_samples={n_ξ_samples}'
         '-dims={dims}'
         '-bias={use_bias}').format(n_ξ_samples=n_ξ_samples,
                                    dims=dims, use_bias=use_bias)
     TRAINING_PARAMETERS = (
-        'seeds_per_batch={seeds_per_batch}'
+        'spb={seeds_per_batch}'
         '-WL={max_walk_length}'
         '-p={p}'
         '-q={q}'
-        '-neighbour_samples={neighbour_samples}'
+        '-ns={neighbour_samples}'
         '-n_epochs={n_epochs}'
         '-run={run}').format(seeds_per_batch=seeds_per_batch,
                              max_walk_length=max_walk_length,
@@ -111,8 +114,43 @@ def train(max_walk_length, p, q, run):
     # ### BUILD THE VAE ###
 
     adj = nx.adjacency_matrix(g).astype(np.float32)
-    q_model, q_codecs = ae.build_q(dims, use_bias=use_bias)
-    p_builder = ae.build_p_builder(dims, use_bias=use_bias)
+    
+    def build_q(dims, use_bias=False):
+        dim_data, dim_l1, dim_ξ = dims
+
+        q_input = keras.layers.Input(shape=(dim_data,), name='q_input')
+        # CANDO: change activation
+        q_layer1_placeholders, q_layer1 = ae.gc_layer_with_placeholders(
+            dim_l1, 'q_layer1', {'use_bias': use_bias, 'activation': 'relu'}, q_input)
+        q_μ_flat_placeholders, q_μ_flat = ae.gc_layer_with_placeholders(
+            dim_ξ, 'q_mu_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+        q_logD_flat_placeholders, q_logD_flat = ae.gc_layer_with_placeholders(
+            dim_ξ, 'q_logD_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+        q_μlogD_flat = keras.layers.Concatenate(name='q_mulogD_flat')(
+            [q_μ_flat, q_logD_flat])
+        q_model = ae.Model(inputs=([q_input]
+                                   + q_layer1_placeholders
+                                   + q_μ_flat_placeholders
+                                   + q_logD_flat_placeholders),
+                           outputs=q_μlogD_flat)
+
+        return q_model, ('OrthogonalGaussian',)
+
+    q_model, q_codecs = build_q(dims, use_bias=use_bias)
+
+    def p_builder(p_input):
+        # CANDO: change activation
+        p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
+                                      kernel_regularizer='l2', bias_regularizer='l2',
+                                      name='p_layer1')(p_input)
+        p_adj = layers.Bilinear(0, use_bias=use_bias,
+                                kernel_regularizer='l2', bias_regularizer='l2',
+                                name='p_adj')([p_layer1, p_layer1])
+        p_v = keras.layers.Dense(dim_data, use_bias=use_bias,
+                                 kernel_regularizer='l2', bias_regularizer='l2',
+                                 name='p_v')(p_layer1)
+        return ([p_adj, p_v], ('SigmoidBernoulliScaledAdjacency', 'SigmoidBernoulli'))
+
     vae, vae_codecs = ae.build_vae(
         (q_model, q_codecs),
         p_builder,
