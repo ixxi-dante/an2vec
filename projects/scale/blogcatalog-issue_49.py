@@ -109,7 +109,6 @@ if crop is None:
         groups
 
 # ## Update model parameters ##
-seeds_per_batch = len(nodes)
 dim_data = len(groups)
 dims = (dim_data, dim_l1, dim_ξ)
 DATA_PARAMETERS = 'crop={crop}'.format(crop=crop)
