@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+echo "Loading modules for GPU-enabled TensorFlow."
+
+module load cuda/9.0 
+
+echo "Done."
