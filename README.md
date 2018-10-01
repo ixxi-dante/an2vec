@@ -27,9 +27,44 @@ it only includes the top-level required packages without versions, and conda wil
 
 ### Managing large data files
 
-TODO: document this
+This repository uses [git-annex](https://git-annex.branchable.com/) to manage large data files, which can be a bit complicated. To use this, first make sure you have git-annex installed. If not, and if you don't have root access (e.g. in a HPC environment), you can install it inside a dedicated Anaconda environment.
 
-This repository uses [git-annex](https://git-annex.branchable.com/) to manage large data files. Currently this isn't documented, but ask me for details if you need to set this up and we'll make some docs.
+Then, from inside your copy of this repository, you tell git that you're using git-annex:
+
+```bash
+git annex init
+git annex enableremote warehouse-rsync
+```
+
+(Note: the `warehouse-rsync` remote is a so-called "special" annex remote tracked in git, and was created using `git annex initremote warehouse-rsync type=rsync rsyncurl=blondy.lip.ens-lyon.fr:/warehouse/COMPLEXNET/nw2vec/annex encryption=none chunk=10Mib`. You don't need to do that again.)
+
+Now whenever you want to add files to the annex:
+
+```bash
+git annex add <the files you want to add>
+git commit
+```
+
+The next step is to actually copy your large files to `warehouse-rsync`:
+
+```bash
+git annex copy --to warehouse-rsync <the files you added>
+```
+
+Finally, publish your changes upstream:
+
+```
+git push --all  # This pushes the `git-annex` branch too, which tracks the hashes of data files
+```
+
+If the push operation fails because of a conflict on the `git-annex` branche, you need to merge the remote's version of the `git-annex` branch into yours. You can do that *without having to checkout that branch* by doing:
+
+```bash
+git pull
+git fetch origin git-annex:git-annex  # Merge what was just pulled from the remote git-annex branch into yours
+```
+
+then `git push`ing again should work. Note that since git-annex tracks *which computer has which copy of which file*, whenever someone downloads a large file from the annex things get tracked and the `git-annex` branch is updated. So this `pull/fetch` dance might be necessary quite often as we start working with more people / more computers.
 
 ### Optional Rust extension
 
