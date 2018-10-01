@@ -72,7 +72,7 @@ class GC(keras.layers.Layer):
     def call(self, inputs):
         adj, mask, features = inputs
 
-        A_tilde = tf.sparse_add(adj, tf.eye(tf.shape(adj)[0]))
+        A_tilde = tf.sparse_add(adj, tf.eye(tf.shape(adj)[0], dtype=K.floatx()))
         D_tilde_out_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=0)))
         D_tilde_in_inv_sqrt = tf.matrix_diag(1.0 / K.sqrt(K.sum(A_tilde, axis=1)))
         A_hat = D_tilde_out_inv_sqrt @ A_tilde @ D_tilde_in_inv_sqrt
@@ -310,6 +310,9 @@ class ParametrisedStochastic(keras.layers.Lambda):
             return codecs.get(codec_name, params).stochastic_value(n_samples)
 
         super(ParametrisedStochastic, self).__init__(sampler, **kwargs)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[:-2] + (self.n_samples,) + input_shape[-2:]
 
     def get_config(self):
         config = {

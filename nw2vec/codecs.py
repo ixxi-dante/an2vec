@@ -90,7 +90,8 @@ class Gaussian(Codec):
     def stochastic_value(self, n_samples):
         """TODOC"""
         μ_shape = tf.shape(self.μ)
-        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0))
+        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0),
+                             dtype=K.floatx())
         return K.squeeze(expand_dims_tile(self.μ, -3, n_samples)
                          + expand_dims_tile(self.R, -3, n_samples) @ ε,
                          -1)
@@ -131,26 +132,25 @@ class OrthogonalGaussian(Codec):
         self.dim = concat_dim // 2
         outer_slices = [slice(None)] * (len(params.shape) - 1)
         μ_flat = params[outer_slices + [slice(self.dim)]]
-        logD_flat = params[outer_slices + [slice(self.dim, 2 * self.dim)]]
-
-        # Prepare the D matrix
-        D = tf.matrix_diag(K.exp(logD_flat))
-        D_inv = tf.matrix_diag(K.exp(- logD_flat))
-        D_inv_sqrt = tf.matrix_diag(K.exp(- .5 * logD_flat))
+        logS_flat = params[outer_slices + [slice(self.dim, 2 * self.dim)]]
 
         self.μ = K.expand_dims(μ_flat, -1)
-        self.R = D_inv_sqrt
-        self.C_inv = D
-        self.C = D_inv
-        self.logdetC = - K.sum(logD_flat, axis=-1)
+
+        self.S_flat = K.exp(logS_flat)
+        self.S = tf.matrix_diag(self.S_flat)
+        self.logdetS = K.sum(logS_flat, axis=-1)
+
+        self.S2_inv = tf.matrix_diag(K.exp(- 2 * logS_flat))
+        self.traceS2 = K.sum(K.exp(2 * logS_flat), axis=-1)
 
     # TOTEST
     def stochastic_value(self, n_samples):
         """TODOC"""
         μ_shape = tf.shape(self.μ)
-        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0))
+        ε = tf.random_normal(tf.concat([μ_shape[:-2], [n_samples], μ_shape[-2:]], 0),
+                             dtype=K.floatx())
         return K.squeeze(expand_dims_tile(self.μ, -3, n_samples)
-                         + expand_dims_tile(self.R, -3, n_samples) @ ε,
+                         + expand_dims_tile(self.S, -3, n_samples) @ ε,
                          -1)
 
     # TOTEST
@@ -160,15 +160,15 @@ class OrthogonalGaussian(Codec):
         v = K.expand_dims(v, -1)
         # Check shapes and broadcast
         v = broadcast_left(v, self.μ)
-        return - .5 * (self.dim * np.log(2 * np.pi) + self.logdetC
+        return - .5 * (self.dim * np.log(2 * np.pi) + 2 * self.logdetS
                        + right_squeeze2(tf.matrix_transpose(v - self.μ)
-                                        @ self.C_inv
+                                        @ self.S2_inv
                                         @ (v - self.μ)))
 
     # TOTEST
     def kl_to_normal(self):
         """TODOC"""
-        return .5 * (tf.trace(self.C) - self.logdetC
+        return .5 * (self.traceS2 - 2 * self.logdetS
                      + right_squeeze2(tf.matrix_transpose(self.μ) @ self.μ)
                      - self.dim)
 
@@ -235,7 +235,9 @@ class SigmoidBernoulliScaledAdjacency(Codec):
         # `adj` now has shape (batch or 1, sampling, batch, batch)
         assert len(adj.shape) == 4  # If this fails, change it to a dynamic check
 
-        density = K.mean(adj)
+        # Remove any potential diagonal elements for the density computation
+        diagonal = tf.matrix_diag(tf.matrix_diag_part(adj))
+        density = K.mean(adj - diagonal)
         weighted_sigmoid_cross_entropies = (
             .5
             * tf.nn.weighted_cross_entropy_with_logits(
