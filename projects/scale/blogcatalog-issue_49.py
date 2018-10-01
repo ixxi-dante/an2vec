@@ -28,7 +28,7 @@ use_bias = False
 
 # Training
 loss_weights = [1.0, 1.0, 1.0]  # q, p_adj, p_v
-n_epochs = 20000
+n_epochs = 1000
 seeds_per_batch = 10
 max_walk_length = 100
 p = 1
