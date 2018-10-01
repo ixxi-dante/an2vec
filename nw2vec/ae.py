@@ -2,6 +2,7 @@ from contextlib import contextmanager
 import warnings
 
 import keras
+from keras import backend as K
 import tensorflow as tf
 
 from keras.engine.topology import Layer
@@ -436,11 +437,11 @@ class Model(keras.Model):
 
 
 def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
-    adj = keras.layers.Input(tensor=tf.sparse_placeholder(tf.float32, shape=(None, None),
+    adj = keras.layers.Input(tensor=tf.sparse_placeholder(K.floatx(), shape=(None, None),
                                                           name=name + '_adj'),
                              sparse=True,
                              name=name + '_adj')
-    mask = keras.layers.Input(tensor=tf.placeholder(tf.float32, shape=(None,),
+    mask = keras.layers.Input(tensor=tf.placeholder(K.floatx(), shape=(None,),
                                                     name=name + '_output_mask'),
                               name=name + '_output_mask')
     gc = layers.GC(dim, name=name, **gc_kwargs)([adj, mask, inlayer])
@@ -512,7 +513,7 @@ def build_vae(q_model_codecs, p_builder, n_ξ_samples, loss_weights):
     model = Model(inputs=q.input, outputs=[q.output] + p_outputs)
 
     # Compile the whole thing with losses
-    model.compile('adam',  # CANDO: tune parameters
+    model.compile(keras.optimizers.Adam(lr=.01),
                   loss=([codecs.get_loss(q_codec, 'kl_to_normal_loss')]
                         + [codecs.get_loss(p_codec, 'estimated_pred_loss')
                            for p_codec in p_codecs]),
