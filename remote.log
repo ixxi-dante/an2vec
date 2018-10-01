@@ -1,3 +1,2 @@
-d310b8d9-9d88-4d1e-a525-b0c2db4a216e chunk=10Mib encryption=none name=warehouse-rsync rsyncurl=blondy.lip.ens-lyon.fr:/warehouse/COMPLEXNET/nw2vec/annex type=rsync timestamp=1531740159.311157602s
-d310b8d9-9d88-4d1e-a525-b0c2db4a216e chunk=10Mib encryption=none name=warehouse-rsync rsyncurl=blondy.lip.ens-lyon.fr:/warehouse/COMPLEXNET/nw2vec/annex type=rsync timestamp=1531740868.6183s
+d310b8d9-9d88-4d1e-a525-b0c2db4a216e chunk=10Mib encryption=none name=warehouse-rsync rsyncurl=blondy.lip.ens-lyon.fr:/warehouse/COMPLEXNET/nw2vec/annex type=rsync timestamp=1538404317.137268s
 dff20c43-0af8-4c4c-bacc-21396988f4b8 chunk=10Mib encryption=none name=warehouse-directory type=directory timestamp=1531740807.387496s
