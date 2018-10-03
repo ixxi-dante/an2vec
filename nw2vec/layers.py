@@ -140,7 +140,7 @@ class Bilinear(keras.layers.Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
-                 call_impl='tensordot',  # set to "whileloop" to test the while_loop implementation
+                 call_impl='whileloop',  # set to "tensordot" to revert to the old implementation
                  **kwargs):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
