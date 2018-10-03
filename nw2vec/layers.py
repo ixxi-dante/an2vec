@@ -164,7 +164,7 @@ class Bilinear(keras.layers.Layer):
         self.input_spec = [keras.engine.InputSpec(min_ndim=2, max_ndim=3)] * 2
         self.supports_masking = False
 
-    def _process_input_shapes(self, input_shapes, check_concrete=True):
+    def _process_input_shapes(self, input_shapes):
         if not isinstance(input_shapes, list) or len(input_shapes) != 2:
             raise ValueError('A `Bilinear` layer should be called '
                              'on a list of 2 inputs.')
@@ -173,42 +173,23 @@ class Bilinear(keras.layers.Layer):
         shape = input_shapes[0]
         assert len(shape) in [2, 3]
 
-        shapes_are_fully_defined = all([(None not in input_shape
-                                         and tf.Dimension(None) not in input_shape)
-                                        for input_shape in input_shapes])
-
-        # Should we require fully defined shapes?
-        if check_concrete:
-            assert shapes_are_fully_defined
-
-        # Get the bilinear axis
-        if shapes_are_fully_defined:
-            bilin_axis = self.bilin_axis % len(shape)
-        else:
-            bilin_axis = self.bilin_axis
-
         # Check the reduction axis is not the bilinear axis
-        assert len(shape) - 1 != bilin_axis
-        if not shapes_are_fully_defined:
-            assert -1 != bilin_axis
+        bilin_axis = self.bilin_axis % len(shape)
+        if len(shape) == 3:
+            assert bilin_axis in [0, 1]
+        else:
+            assert bilin_axis == 0
 
         # Get the diag_axis if it exists
-        if shapes_are_fully_defined and len(shape) == 3:
-            assert bilin_axis in [0, 1]
+        if len(shape) == 3:
             diag_axis = 1 - bilin_axis
-            # The diag_axis dimensions must be the same for both tensors.
-            # This is also dynamically checked for in `self.call()` for the case
-            # where the shapes are not fully defined here.
-            assert input_shapes[0][diag_axis] == input_shapes[1][diag_axis]
         else:
             diag_axis = None
 
-        # Note that diag_axis can be `None` either because there is none (len(shape) == 2),
-        # or because the shapes are not fully defined
         return bilin_axis, diag_axis, shape[-1]
 
     def build(self, input_shapes):
-        bilin_axis, _, input_dim = self._process_input_shapes(input_shapes, check_concrete=False)
+        bilin_axis, _, input_dim = self._process_input_shapes(input_shapes)
 
         if self.fixed_kernel is not None:
             self.kernel = K.constant(self.fixed_kernel)
@@ -260,7 +241,7 @@ class Bilinear(keras.layers.Layer):
         return output
 
     def compute_output_shape(self, input_shapes):
-        bilin_axis, diag_axis, _ = self._process_input_shapes(input_shapes, check_concrete=False)
+        bilin_axis, diag_axis, _ = self._process_input_shapes(input_shapes)
         # diag_axis can be None either because there is none
         # (i.e. len(input_shapes[0]) == len(input_shapes[1]) == 2) or
         # because we don't know its dimension (i.e. shape[diag_axis] is None).
@@ -312,7 +293,9 @@ class ParametrisedStochastic(keras.layers.Lambda):
         super(ParametrisedStochastic, self).__init__(sampler, **kwargs)
 
     def compute_output_shape(self, input_shape):
-        return input_shape[:-2] + (self.n_samples,) + input_shape[-2:]
+        codec_output_shape = codecs.available_codecs()[self.codec_name]\
+            .compute_output_shape(input_shape)
+        return codec_output_shape[:-1] + (self.n_samples,) + codec_output_shape[-1:]
 
     def get_config(self):
         config = {
@@ -339,4 +322,4 @@ def available_layers():
     return dict(
         inspect.getmembers(sys.modules[__name__],
                            lambda m: inspect.isclass(m) and issubclass(m, keras.layers.Layer))
-   )
+    )

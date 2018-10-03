@@ -15,6 +15,10 @@ class Codec:
     def __init__(self, params):
         self.params = params
 
+    @classmethod
+    def compute_output_shape(cls, input_shape):
+        raise NotImplementedError
+
     def stochastic_value(self, n_samples):
         raise NotImplementedError
 
@@ -86,6 +90,10 @@ class Gaussian(Codec):
         self.C = D_inv - (η * (D_inv @ u @ uT @ D_inv))
         self.logdetC = right_squeeze2(K.log(η)) - K.sum(logD_flat, axis=-1)
 
+    @classmethod
+    def compute_output_shape(cls, input_shape):
+        return input_shape[:-1] + (input_shape[-1] // 3,)
+
     # TOTEST
     def stochastic_value(self, n_samples):
         """TODOC"""
@@ -142,6 +150,10 @@ class OrthogonalGaussian(Codec):
 
         self.S2_inv = tf.matrix_diag(K.exp(- 2 * logS_flat))
         self.traceS2 = K.sum(K.exp(2 * logS_flat), axis=-1)
+
+    @classmethod
+    def compute_output_shape(cls, input_shape):
+        return input_shape[:-1] + (input_shape[-1] // 2,)
 
     # TOTEST
     def stochastic_value(self, n_samples):
