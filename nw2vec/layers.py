@@ -140,6 +140,7 @@ class Bilinear(keras.layers.Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
+                 call_impl='tensordot',  # set to "whileloop" to test the while_loop implementation
                  **kwargs):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
@@ -161,6 +162,8 @@ class Bilinear(keras.layers.Layer):
         self.activity_regularizer = keras.regularizers.get(activity_regularizer)
         self.kernel_constraint = keras.constraints.get(kernel_constraint)
         self.bias_constraint = keras.constraints.get(bias_constraint)
+        assert call_impl in ['whileloop', 'tensordot']
+        self.call_impl = call_impl
         self.input_spec = [keras.engine.InputSpec(min_ndim=2, max_ndim=3)] * 2
         self.supports_masking = False
 
@@ -216,6 +219,62 @@ class Bilinear(keras.layers.Layer):
         super(Bilinear, self).build(input_shapes)
 
     def call(self, inputs):
+        if self.call_impl == 'whileloop':
+            return self.call_whileloop(inputs)
+        else:
+            return self.call_tensordot(inputs)
+
+    def call_whileloop(self, inputs):
+        tensor0, tensor1 = inputs
+        bilin_axis, diag_axis, _ = self._process_input_shapes([tensor0.shape, tensor1.shape])
+        assert bilin_axis in [0, 1]
+        assert (diag_axis is None) or (diag_axis == 1 - bilin_axis)
+        bilin_dim, diag_dim = tensor0.shape[bilin_axis], tensor0.shape[diag_axis]
+        if isinstance(bilin_dim, tf.Dimension):
+            bilin_dim = bilin_dim.value
+        if isinstance(diag_dim, tf.Dimension):
+            diag_dim = diag_dim.value
+
+        K_tensor1 = tf.tensordot(tensor1, self.kernel, axes=[[-1], [1]])
+        if diag_axis is None:
+            assert len(tensor0.shape) == len(tensor1.shape) == 2
+            output = tf.tensordot(tensor0, K_tensor1, axes=[[-1], [-1]])
+        else:
+
+            def diag_slice(k):
+                idx = [0.0, 0.0, slice(None)]
+                idx[diag_axis] = k
+                idx[bilin_axis] = slice(None)
+                return idx
+
+            def counter(i, t):
+                return i < diag_dim
+
+            def body(i, t):
+                idx = diag_slice(i)
+                slice_dot = tf.tensordot(tensor0[idx], K_tensor1[idx], axes=[[-1], [-1]])
+                return (i + 1, tf.concat([t, K.expand_dims(slice_dot, 0)], axis=0))
+
+            i0 = K.constant(0, dtype=tf.int32)
+            if bilin_dim is None:
+                bilin_dim_dyn = tf.shape(tensor0)[bilin_axis]
+                out0 = K.zeros((0, bilin_dim_dyn, bilin_dim_dyn))
+            else:
+                out0 = K.zeros((0, bilin_dim, bilin_dim))
+
+            _, output = tf.while_loop(
+                counter, body, loop_vars=[i0, out0],
+                shape_invariants=[i0.get_shape(), tf.TensorShape([None, bilin_dim, bilin_dim])]
+            )
+
+        if self.use_bias:
+            output = output + self.bias
+        if self.activation is not None:
+            output = self.activation(output)
+        output = K.expand_dims(output, 0)
+        return output
+
+    def call_tensordot(self, inputs):
         tensor0, tensor1 = inputs
         bilin_axis, diag_axis, _ = self._process_input_shapes([tensor0.shape, tensor1.shape])
 
@@ -242,10 +301,6 @@ class Bilinear(keras.layers.Layer):
 
     def compute_output_shape(self, input_shapes):
         bilin_axis, diag_axis, _ = self._process_input_shapes(input_shapes)
-        # diag_axis can be None either because there is none
-        # (i.e. len(input_shapes[0]) == len(input_shapes[1]) == 2) or
-        # because we don't know its dimension (i.e. shape[diag_axis] is None).
-        # Here we only want to skip it if there is none, not if we don't know its dimension.
         axes = ([] if len(input_shapes[0]) == 2 else [(0, diag_axis)]
                 + [(0, bilin_axis), (1, bilin_axis)])
         return ((1,) + tuple([input_shapes[tensor][ax] if ax is not None else None
