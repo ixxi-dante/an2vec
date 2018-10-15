@@ -13,6 +13,15 @@ import numba
 logger = logging.getLogger(__name__)
 
 
+def slice_size(s, n):
+    start, stop, step = s.indices(n)
+
+    if step == 1:
+        return stop - start
+    else:
+        return 1 + (stop - start) // step
+
+
 @numba.jit(nopython=True)
 def alias_setup(probs):
     """Compute utility lists for non-uniform sampling from discrete distributions.

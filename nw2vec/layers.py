@@ -7,6 +7,7 @@ import keras
 from keras import backend as K
 
 from nw2vec import codecs
+from nw2vec import utils
 
 
 class GC(keras.layers.Layer):
@@ -322,6 +323,40 @@ class Bilinear(keras.layers.Layer):
             'bias_constraint': keras.constraints.serialize(self.bias_constraint)
         }
         base_config = super(Bilinear, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    @classmethod
+    def from_config(cls, config, custom_objects=None):
+        # Recover any numpy array arguments
+        config = config.copy()
+        for key in config:
+            if isinstance(config[key], dict):
+                if 'type' in config[key] and config[key]['type'] == 'ndarray':
+                    config[key] = np.array(config[key]['value'])
+
+        return cls(**config)
+
+
+class InnerSlice(keras.layers.Lambda):
+
+    def __init__(self, inner_slice, **kwargs):
+        self.inner_slice = inner_slice
+
+        def slicer(input):
+            outer_slices = [slice(None)] * (len(input.shape) - 1)
+            return input[outer_slices + [inner_slice]]
+
+        super(InnerSlice, self).__init__(slicer, **kwargs)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[:-1] + (utils.slice_size(self.inner_slice, input_shape[-1]),)
+
+    def get_config(self):
+        config = {
+            'inner_slice': self.inner_slice,
+        }
+        # Skip the Lambda-specific config parameters as we recreate the Lambda layer ourselves
+        base_config = super(keras.layers.Lambda, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
     @classmethod

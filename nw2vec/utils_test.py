@@ -6,6 +6,19 @@ import numba
 from nw2vec import utils
 
 
+def test_slice_size():
+    assert utils.slice_size(slice(5), 6) == 5
+    assert utils.slice_size(slice(5), 4) == 4
+    assert utils.slice_size(slice(2, 5), 6) == 3
+    assert utils.slice_size(slice(2, 5), 4) == 2
+    assert utils.slice_size(slice(2, 5), 2) == 0
+    assert utils.slice_size(slice(2, 5, 2), 6) == 2
+    assert utils.slice_size(slice(2, 5, 2), 4) == 2
+    assert utils.slice_size(slice(2, 5, 2), 3) == 1
+    assert utils.slice_size(slice(2, 6, 2), 7) == 3
+    assert utils.slice_size(slice(2, 6, 2), 5) == 2
+
+
 def test_alias_setup():
     # Fails if `probs` is not an ndarray or is empty
     with pytest.raises(numba.errors.TypingError):

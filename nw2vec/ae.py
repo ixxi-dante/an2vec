@@ -15,6 +15,7 @@ import numpy as np
 
 from nw2vec import layers
 from nw2vec import codecs
+from nw2vec import utils
 
 
 class ModelBatchCheckpoint(cbks.Callback):
@@ -509,15 +510,37 @@ def build_q(dims, use_bias=False, fullbatcher=None, minibatcher=None):
     return q_model, ('OrthogonalGaussian',)
 
 
-def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use_bias=False):
+def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use_bias=False,
+                    embedding_slices=None, share_l1=True):
     assert feature_codec in ['SigmoidBernoulli', 'OrthogonalGaussian']
+
+    if embedding_slices is None:
+        adj_embedding_slice, v_embedding_slice = [slice(None), slice(None)]
+    else:
+        adj_embedding_slice, v_embedding_slice = embedding_slices
+
     dim_data, dim_l1, dim_ξ = dims
 
     def p_builder(p_input):
+        # Get slices of the embeddings for each prediction
+        p_input_adj = layers.InnerSlice(adj_embedding_slice)(p_input)
+        p_input_v = layers.InnerSlice(v_embedding_slice)(p_input)
 
-        p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
-                                      kernel_regularizer='l2', bias_regularizer='l2',
-                                      name='p_layer1')(p_input)
+        # Build layer1 for adj and v
+        if share_l1:
+            p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
+                                          kernel_regularizer='l2', bias_regularizer='l2',
+                                          name='p_layer1')
+            p_layer1_adj = p_layer1(p_input_adj)
+            p_layer1_v = p_layer1(p_input_v)
+        else:
+            p_layer1_adj = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
+                                              kernel_regularizer='l2', bias_regularizer='l2',
+                                              name='p_layer1_adj')(p_input_adj)
+            p_layer1_v = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
+                                            kernel_regularizer='l2', bias_regularizer='l2',
+                                            name='p_layer1_v')(p_input_v)
+
         adj_kwargs = {}
         if adj_kernel is not None:
             adj_kwargs['fixed_kernel'] = adj_kernel
@@ -525,20 +548,20 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
             adj_kwargs['kernel_regularizer'] = 'l2'
         p_adj = layers.Bilinear(0, use_bias=use_bias, name='p_adj',
                                 bias_regularizer='l2',
-                                **adj_kwargs)([p_layer1, p_layer1])
+                                **adj_kwargs)([p_layer1_adj, p_layer1_adj])
 
         if feature_codec == 'SigmoidBernoulli':
             p_v = keras.layers.Dense(dim_data, use_bias=use_bias,
                                      kernel_regularizer='l2', bias_regularizer='l2',
-                                     name='p_v')(p_layer1)
+                                     name='p_v')(p_layer1_v)
         else:
             assert feature_codec == 'OrthogonalGaussian'
             p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
                                             kernel_regularizer='l2', bias_regularizer='l2',
-                                            name='p_v_mu_flat')(p_layer1)
+                                            name='p_v_mu_flat')(p_layer1_v)
             p_v_logS_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
                                                kernel_regularizer='l2', bias_regularizer='l2',
-                                               name='p_v_logS_flat')(p_layer1)
+                                               name='p_v_logS_flat')(p_layer1_v)
             p_v = keras.layers.Concatenate(name='p_v_mulogS_flat')([p_v_μ_flat, p_v_logS_flat])
 
         return ([p_adj, p_v], ('SigmoidBernoulliScaledAdjacency', feature_codec))
