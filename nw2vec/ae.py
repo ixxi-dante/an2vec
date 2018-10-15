@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 import warnings
+import itertools
 
 import keras
 from keras import backend as K
@@ -121,6 +122,11 @@ class ModelBatchCheckpoint(cbks.Callback):
 
 class Model(keras.Model):
 
+    def __init__(self, inputs, outputs, fullbatcher=None, minibatcher=None, name=None):
+        self.fullbatcher = fullbatcher
+        self.minibatcher = minibatcher
+        return super(Model, self).__init__(inputs, outputs, name=name)
+
     def _get_feed_dict_and_translator(self):
         # Get the model's `feed_dict`
         if (not hasattr(self, '_function_kwargs')
@@ -191,9 +197,41 @@ class Model(keras.Model):
         with self.food(feeds):
             return self.train_on_batch(x, y, **kwargs)
 
+    def predict_fullbatch(self, **kwargs):
+        if self.fullbatcher is None:
+            raise ValueError("Model has no fullbatcher")
+
+        assert 'features' in kwargs
+
+        x, _, feeds = next(self.fullbatcher(self, **kwargs))
+        return self.predict_on_fed_batch(x, feeds=feeds)
+
+    def predict_minibatches(self, **kwargs):
+        if self.minibatcher is None:
+            raise ValueError("Model has no minibatcher")
+
+        assert 'features' in kwargs
+        steps_per_epoch = kwargs.pop('steps_per_epoch')
+
+        out = []
+        for x, _, feeds in itertools.islice(self.minibatcher(self, **kwargs),
+                                            steps_per_epoch):
+            out.append(self.predict_on_fed_batch(x, feeds=feeds))
+        return out
+
     def predict_on_fed_batch(self, x, feeds={}):
         with self.food(feeds):
             return self.predict_on_batch(x)
+
+    def fit_fullbatches(self, batcher_kws={}, shuffle=False, check_array_lengths=False, **kwargs):
+        return self.fit_generator_feed(self.fullbatcher(self, **batcher_kws), steps_per_epoch=1,
+                                       shuffle=shuffle, check_array_lengths=check_array_lengths,
+                                       **kwargs)
+
+    def fit_minibatches(self, batcher_kws={}, shuffle=False, check_array_lengths=False, **kwargs):
+        return self.fit_generator_feed(self.minibatcher(self, **batcher_kws),
+                                       shuffle=shuffle, check_array_lengths=check_array_lengths,
+                                       **kwargs)
 
     def fit_generator_feed(self,
                            generator,
@@ -448,7 +486,7 @@ def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
     return [adj, mask], gc
 
 
-def build_q(dims, use_bias=False):
+def build_q(dims, use_bias=False, fullbatcher=None, minibatcher=None):
     dim_data, dim_l1, dim_ξ = dims
 
     q_input = keras.layers.Input(shape=(dim_data,), name='q_input')
@@ -457,50 +495,58 @@ def build_q(dims, use_bias=False):
         dim_l1, 'q_layer1', {'use_bias': use_bias, 'activation': 'relu'}, q_input)
     q_μ_flat_placeholders, q_μ_flat = gc_layer_with_placeholders(
         dim_ξ, 'q_mu_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
-    q_logD_flat_placeholders, q_logD_flat = gc_layer_with_placeholders(
-        dim_ξ, 'q_logD_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
-    q_u_flat_placeholders, q_u_flat = gc_layer_with_placeholders(
-        dim_ξ, 'q_u_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
-    q_μlogDu_flat = keras.layers.Concatenate(name='q_mulogDu_flat')(
-        [q_μ_flat, q_logD_flat, q_u_flat])
+    q_logS_flat_placeholders, q_logS_flat = gc_layer_with_placeholders(
+        dim_ξ, 'q_logS_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+    q_μlogS_flat = keras.layers.Concatenate(name='q_mulogS_flat')([q_μ_flat, q_logS_flat])
     q_model = Model(inputs=([q_input]
                             + q_layer1_placeholders
                             + q_μ_flat_placeholders
-                            + q_logD_flat_placeholders
-                            + q_u_flat_placeholders),
-                    outputs=q_μlogDu_flat)
+                            + q_logS_flat_placeholders),
+                    outputs=q_μlogS_flat,
+                    fullbatcher=fullbatcher,
+                    minibatcher=minibatcher )
 
-    return q_model, ('Gaussian',)
+    return q_model, ('OrthogonalGaussian',)
 
 
-def build_p_builder(dims, use_bias=False):
+def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use_bias=False):
+    assert feature_codec in ['SigmoidBernoulli', 'OrthogonalGaussian']
     dim_data, dim_l1, dim_ξ = dims
 
     def p_builder(p_input):
-        # CANDO: change activation
+
         p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
                                       kernel_regularizer='l2', bias_regularizer='l2',
                                       name='p_layer1')(p_input)
-        p_adj = layers.Bilinear(0, use_bias=use_bias,
-                                kernel_regularizer='l2', bias_regularizer='l2',
-                                name='p_adj')([p_layer1, p_layer1])
-        p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
-                                        kernel_regularizer='l2', bias_regularizer='l2',
-                                        name='p_v_mu_flat')(p_layer1)
-        p_v_logD_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
-                                           kernel_regularizer='l2', bias_regularizer='l2',
-                                           name='p_v_logD_flat')(p_layer1)
-        p_v_u_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
-                                        kernel_regularizer='l2', bias_regularizer='l2',
-                                        name='p_v_u_flat')(p_layer1)
-        p_v_μlogDu_flat = keras.layers.Concatenate(name='p_v_mulogDu_flat')(
-            [p_v_μ_flat, p_v_logD_flat, p_v_u_flat])
-        return ([p_adj, p_v_μlogDu_flat], ('SigmoidBernoulliAdjacency', 'Gaussian'))
+        adj_kwargs = {}
+        if adj_kernel is not None:
+            adj_kwargs['fixed_kernel'] = adj_kernel
+        else:
+            adj_kwargs['kernel_regularizer'] = 'l2'
+        p_adj = layers.Bilinear(0, use_bias=use_bias, name='p_adj',
+                                bias_regularizer='l2',
+                                **adj_kwargs)([p_layer1, p_layer1])
+
+        if feature_codec == 'SigmoidBernoulli':
+            p_v = keras.layers.Dense(dim_data, use_bias=use_bias,
+                                     kernel_regularizer='l2', bias_regularizer='l2',
+                                     name='p_v')(p_layer1)
+        else:
+            assert feature_codec == 'OrthogonalGaussian'
+            p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
+                                            kernel_regularizer='l2', bias_regularizer='l2',
+                                            name='p_v_mu_flat')(p_layer1)
+            p_v_logS_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
+                                               kernel_regularizer='l2', bias_regularizer='l2',
+                                               name='p_v_logS_flat')(p_layer1)
+            p_v = keras.layers.Concatenate(name='p_v_mulogS_flat')([p_v_μ_flat, p_v_logS_flat])
+
+        return ([p_adj, p_v], ('SigmoidBernoulliScaledAdjacency', feature_codec))
 
     return p_builder
 
 
-def build_vae(q_model_codecs, p_builder, n_ξ_samples, loss_weights):
+def build_vae(q_model_codecs, p_builder, n_ξ_samples, loss_weights=None):
     """TODOC"""
     q, q_codecs = q_model_codecs
     assert len(q_codecs) == 1
@@ -510,17 +556,17 @@ def build_vae(q_model_codecs, p_builder, n_ξ_samples, loss_weights):
     # Wire up the model
     ξ = layers.ParametrisedStochastic(q_codec, n_ξ_samples)(q.output)
     p_outputs, p_codecs = p_builder(ξ)
-    model = Model(inputs=q.input, outputs=[q.output] + p_outputs)
+    model = Model(inputs=q.input, outputs=[q.output] + p_outputs,
+                  fullbatcher=q.fullbatcher, minibatcher=q.minibatcher)
 
     # Compile the whole thing with losses
+    losses = [codecs.get_loss(q_codec, 'kl_to_normal_loss')] + [codecs.get_loss(p_codec, 'estimated_pred_loss')
+                                                                for p_codec in p_codecs]
+    if loss_weights is None:
+        loss_weights = [1.0] * len(losses)
     model.compile(keras.optimizers.Adam(lr=.01),
-                  loss=([codecs.get_loss(q_codec, 'kl_to_normal_loss')]
-                        + [codecs.get_loss(p_codec, 'estimated_pred_loss')
-                           for p_codec in p_codecs]),
-                  loss_weights=loss_weights,
-                  feed_dict={},
-                  # TODO: metrics
-                  )
+                  loss=losses, loss_weights=loss_weights,
+                  feed_dict={})
 
     return model, (q_codec,) + p_codecs
 

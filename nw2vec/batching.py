@@ -219,9 +219,16 @@ def epoch_batches(model, g,
         yield required_nodes, np.array(sorted(final_nodes)), feeds
 
 
-def batches(model, adj, features, target_func,
-            seeds_per_batch, max_walk_length,
-            p=1.0, q=1.0, neighbour_samples=None):
+def pq_batches(model, adj=None, features=None, target_func=None,
+               seeds_per_batch=None, max_walk_length=None,
+               p=1.0, q=1.0, neighbour_samples=None):
+    if any(map(lambda a: a is None, [adj, features, seeds_per_batch, max_walk_length])):
+        raise ValueError("None of adj, features, "
+                         "seeds_per_batch, max_walk_length can be None")
+    if target_func is None:
+        def target_func(*args, **kwargs):
+            return None
+
     # Prepare graph structure
     if not isinstance(adj, sparse.csr_matrix):
         assert isinstance(adj, np.ndarray)
@@ -240,3 +247,21 @@ def batches(model, adj, features, target_func,
             yield (features[required_nodes],
                    target_func(batch_adj, required_nodes, final_nodes),
                    feeds)
+
+def fullbatches(model, adj=None, features=None, target_func=None, neighbour_samples=None):
+    if any(map(lambda a: a is None, [adj, features])):
+        raise ValueError("None of adj, features, can be None")
+    if target_func is None:
+        def target_func(*args, **kwargs):
+            return None
+
+    # Prepare features
+    assert adj.shape[0] == adj.shape[1]
+    assert features.shape[0] == adj.shape[0]
+    features = utils.scale_center(features)
+    nodes = np.arange(adj.shape[0])
+    nodes_set = set(nodes)
+
+    while True:
+        _, feeds = _compute_batch(model, adj, nodes_set, neighbour_samples)
+        yield (features, target_func(adj, nodes, nodes), feeds)

@@ -260,11 +260,15 @@ class SigmoidBernoulliScaledAdjacency(Codec):
         return - K.mean(K.sum(weighted_sigmoid_cross_entropies, axis=-1), axis=-1)
 
 
-@functools.lru_cache(typed=True)
-def get(codec_name, *args, **kwargs):
+def get_nocache(codec_name, *args, **kwargs):
     codecs = available_codecs()
     assert codec_name in codecs
     return codecs[codec_name](*args, **kwargs)
+
+
+@functools.lru_cache(typed=True)
+def get(codec_name, *args, **kwargs):
+    return get_nocache(codec_name, *args, **kwargs)
 
 
 def available_codecs():
