@@ -446,38 +446,38 @@ def test_epoch_batches(model_depth2):
 def test_batches(model_depth2):
     # Rejects a non-ndarray numpy matrix
     with pytest.raises(AssertionError):
-        next(batching.batches(model_depth2,
-                              (np.ones((3, 3)) - np.eye(3)).tolist(),
-                              np.eye(3), lambda a, b, c: None,
-                              3, 2))
+        next(batching.pq_batches(model_depth2,
+                                 (np.ones((3, 3)) - np.eye(3)).tolist(),
+                                 np.eye(3), lambda a, b, c: None,
+                                 3, 2))
 
     # Rejects a directed graph
     with pytest.raises(AssertionError):
-        next(batching.batches(model_depth2,
-                              np.array([[0, 1], [0, 0]]),
-                              np.eye(2), lambda a, b, c: None,
-                              3, 2))
+        next(batching.pq_batches(model_depth2,
+                                 np.array([[0, 1], [0, 0]]),
+                                 np.eye(2), lambda a, b, c: None,
+                                 3, 2))
 
     # Rejects a weighted graph
     with pytest.raises(AssertionError):
-        next(batching.batches(model_depth2,
-                              np.array([[0, 2], [2, 0]]),
-                              np.eye(2), lambda a, b, c: None,
-                              3, 2))
+        next(batching.pq_batches(model_depth2,
+                                 np.array([[0, 2], [2, 0]]),
+                                 np.eye(2), lambda a, b, c: None,
+                                 3, 2))
 
     # Rejects a graph with self-connections
     with pytest.raises(AssertionError):
-        next(batching.batches(model_depth2,
-                              np.array([[1, 1], [1, 0]]),
-                              np.eye(2), lambda a, b, c: None,
-                              3, 2))
+        next(batching.pq_batches(model_depth2,
+                                 np.array([[1, 1], [1, 0]]),
+                                 np.eye(2), lambda a, b, c: None,
+                                 3, 2))
 
     # Rejects non-matching number of features and adj shape
     with pytest.raises(AssertionError):
-        next(batching.batches(model_depth2,
-                              np.array([[0, 1], [1, 0]]),
-                              np.eye(3), lambda a, b, c: None,
-                              3, 2))
+        next(batching.pq_batches(model_depth2,
+                                 np.array([[0, 1], [1, 0]]),
+                                 np.eye(3), lambda a, b, c: None,
+                                 3, 2))
 
     # Works with good arguments
     adj = np.array([[0, 1, 0, 0, 0],
@@ -485,7 +485,7 @@ def test_batches(model_depth2):
                     [0, 1, 0, 1, 0],
                     [0, 0, 1, 0, 0],
                     [0, 0, 0, 0, 0]])
-    features, targets, feeds = next(batching.batches(
+    features, targets, feeds = next(batching.pq_batches(
         model_depth2, adj, np.random.uniform(0, 7, size=(5, 10)),
         lambda batch_adj, required_nodes, final_nodes: (batch_adj, required_nodes, final_nodes),
         2, 2))
