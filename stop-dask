@@ -8,7 +8,7 @@ cat dask-slaves | grep -v '^#' | sed 's/ *#.*$//g' | while read slave_nprocs; do
   slave_nprocs=($slave_nprocs)
   slave=${slave_nprocs[0]}
   echo "Stopping slave '$slave'"
-  ssh $slave "killall -u slerique dask-worker"
+  ssh $slave "killall -u slerique dask-worker" < /dev/null
 done
 
-echo "All done.
+echo "All done."
