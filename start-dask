@@ -24,7 +24,7 @@ cat dask-slaves | grep -v '^#' | sed 's/ *#.*$//g' | while read slave_nprocs; do
   slave=${slave_nprocs[0]}
   nprocs=${slave_nprocs[1]}
   echo "Starting slave '$slave' with $nprocs processes"
-  ssh $slave "killall -u \$(whoami) dask-worker; . \$HOME/anaconda3/etc/profile.d/conda.sh; conda activate base36; screen -A -m -d -S dask -L $(pwd)/data/dask-cluster/log/$slave nice -n 19 dask-worker --nprocs $nprocs $(hostname):8786" < /dev/null
+  ssh $slave "killall -u \$(whoami) dask-worker 2> /dev/null; . \$HOME/anaconda3/etc/profile.d/conda.sh; conda activate base36; screen -A -m -d -S dask -L $(pwd)/data/dask-cluster/log/$slave nice -n 19 dask-worker --nprocs $nprocs $(hostname):8786" < /dev/null
 done
 
 echo "All done."

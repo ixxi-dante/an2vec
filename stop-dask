@@ -1,8 +1,7 @@
 #!/bin/bash
 # Stop the Dask cluster on the lip/crunch machines
 
-# Don't tolerate errors
-set -e
+# Tolerate errors (no "set -x") as we want to loop through all slaves whatever happens
 
 cat dask-slaves | grep -v '^#' | sed 's/ *#.*$//g' | while read slave_nprocs; do
   slave_nprocs=($slave_nprocs)
