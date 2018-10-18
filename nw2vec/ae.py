@@ -15,7 +15,6 @@ import numpy as np
 
 from nw2vec import layers
 from nw2vec import codecs
-from nw2vec import utils
 
 
 class ModelBatchCheckpoint(cbks.Callback):
@@ -487,31 +486,47 @@ def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
     return [adj, mask], gc
 
 
-def build_q(dims, use_bias=False, fullbatcher=None, minibatcher=None):
-    dim_data, dim_l1, dim_ξ = dims
+def build_q(dims, overlap=0, use_bias=False, fullbatcher=None, minibatcher=None):
+    dim_data, dim_l1, dim_ξa, dim_ξb = dims
+    assert overlap <= min(dim_ξa, dim_ξb)
 
     q_input = keras.layers.Input(shape=(dim_data,), name='q_input')
-    # CANDO: change activation
+
     q_layer1_placeholders, q_layer1 = gc_layer_with_placeholders(
         dim_l1, 'q_layer1', {'use_bias': use_bias, 'activation': 'relu'}, q_input)
-    q_μ_flat_placeholders, q_μ_flat = gc_layer_with_placeholders(
-        dim_ξ, 'q_mu_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
-    q_logS_flat_placeholders, q_logS_flat = gc_layer_with_placeholders(
-        dim_ξ, 'q_logS_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+
+    q_μa_flat_placeholders, q_μa_flat = gc_layer_with_placeholders(
+        dim_ξa, 'q_mua_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+    q_logSa_flat_placeholders, q_logSa_flat = gc_layer_with_placeholders(
+        dim_ξa, 'q_logSa_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+
+    q_μb_flat_placeholders, q_μb_flat = gc_layer_with_placeholders(
+        dim_ξb, 'q_mub_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+    q_logSb_flat_placeholders, q_logSb_flat = gc_layer_with_placeholders(
+        dim_ξb, 'q_logSb_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
+
+    q_μ_flat = layers.OverlappingConcatenate(name='q_mu_flat', overlap_size=overlap,
+                                             reducer='mean')([q_μa_flat, q_μb_flat])
+    q_logS_flat = layers.OverlappingConcatenate(name='q_logS_flat', overlap_size=overlap,
+                                                reducer='mean')([q_logSa_flat, q_logSb_flat])
+
     q_μlogS_flat = keras.layers.Concatenate(name='q_mulogS_flat')([q_μ_flat, q_logS_flat])
+
     q_model = Model(inputs=([q_input]
                             + q_layer1_placeholders
-                            + q_μ_flat_placeholders
-                            + q_logS_flat_placeholders),
+                            + q_μa_flat_placeholders
+                            + q_logSa_flat_placeholders
+                            + q_μb_flat_placeholders
+                            + q_logSb_flat_placeholders),
                     outputs=q_μlogS_flat,
                     fullbatcher=fullbatcher,
-                    minibatcher=minibatcher )
+                    minibatcher=minibatcher)
 
     return q_model, ('OrthogonalGaussian',)
 
 
 def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use_bias=False,
-                    embedding_slices=None, share_l1=True):
+                    embedding_slices=None, with_l1=True, share_l1=True):
     assert feature_codec in ['SigmoidBernoulli', 'OrthogonalGaussian']
 
     if embedding_slices is None:
@@ -519,7 +534,7 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
     else:
         adj_embedding_slice, v_embedding_slice = embedding_slices
 
-    dim_data, dim_l1, dim_ξ = dims
+    dim_data, dim_l1, _, _ = dims
 
     def p_builder(p_input):
         # Get slices of the embeddings for each prediction
@@ -528,18 +543,27 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
 
         # Build layer1 for adj and v
         if share_l1:
+            assert with_l1, "Can't share l1 if l1 is not requested"
             p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
                                           kernel_regularizer='l2', bias_regularizer='l2',
                                           name='p_layer1')
-            p_layer1_adj = p_layer1(p_input_adj)
-            p_layer1_v = p_layer1(p_input_v)
+            p_penultimate_adj = p_layer1(p_input_adj)
+            p_penultimate_v = p_layer1(p_input_v)
         else:
-            p_layer1_adj = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
-                                              kernel_regularizer='l2', bias_regularizer='l2',
-                                              name='p_layer1_adj')(p_input_adj)
-            p_layer1_v = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
-                                            kernel_regularizer='l2', bias_regularizer='l2',
-                                            name='p_layer1_v')(p_input_v)
+            if with_l1:
+                p_penultimate_adj = keras.layers.Dense(
+                    dim_l1, use_bias=use_bias, activation='relu',
+                    kernel_regularizer='l2', bias_regularizer='l2',
+                    name='p_layer1_adj'
+                )(p_input_adj)
+                p_penultimate_v = keras.layers.Dense(
+                    dim_l1, use_bias=use_bias, activation='relu',
+                    kernel_regularizer='l2', bias_regularizer='l2',
+                    name='p_layer1_v'
+                )(p_input_v)
+            else:
+                p_penultimate_adj = p_input_adj
+                p_penultimate_v = p_input_v
 
         adj_kwargs = {}
         if adj_kernel is not None:
@@ -548,20 +572,20 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
             adj_kwargs['kernel_regularizer'] = 'l2'
         p_adj = layers.Bilinear(0, use_bias=use_bias, name='p_adj',
                                 bias_regularizer='l2',
-                                **adj_kwargs)([p_layer1_adj, p_layer1_adj])
+                                **adj_kwargs)([p_penultimate_adj, p_penultimate_adj])
 
         if feature_codec == 'SigmoidBernoulli':
             p_v = keras.layers.Dense(dim_data, use_bias=use_bias,
                                      kernel_regularizer='l2', bias_regularizer='l2',
-                                     name='p_v')(p_layer1_v)
+                                     name='p_v')(p_penultimate_v)
         else:
             assert feature_codec == 'OrthogonalGaussian'
             p_v_μ_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
                                             kernel_regularizer='l2', bias_regularizer='l2',
-                                            name='p_v_mu_flat')(p_layer1_v)
+                                            name='p_v_mu_flat')(p_penultimate_v)
             p_v_logS_flat = keras.layers.Dense(dim_data, use_bias=use_bias,
                                                kernel_regularizer='l2', bias_regularizer='l2',
-                                               name='p_v_logS_flat')(p_layer1_v)
+                                               name='p_v_logS_flat')(p_penultimate_v)
             p_v = keras.layers.Concatenate(name='p_v_mulogS_flat')([p_v_μ_flat, p_v_logS_flat])
 
         return ([p_adj, p_v], ('SigmoidBernoulliScaledAdjacency', feature_codec))
@@ -583,8 +607,8 @@ def build_vae(q_model_codecs, p_builder, n_ξ_samples, loss_weights=None):
                   fullbatcher=q.fullbatcher, minibatcher=q.minibatcher)
 
     # Compile the whole thing with losses
-    losses = [codecs.get_loss(q_codec, 'kl_to_normal_loss')] + [codecs.get_loss(p_codec, 'estimated_pred_loss')
-                                                                for p_codec in p_codecs]
+    losses = ([codecs.get_loss(q_codec, 'kl_to_normal_loss')]
+              + [codecs.get_loss(p_codec, 'estimated_pred_loss') for p_codec in p_codecs])
     if loss_weights is None:
         loss_weights = [1.0] * len(losses)
     model.compile(keras.optimizers.Adam(lr=.01),

@@ -371,6 +371,62 @@ class InnerSlice(keras.layers.Lambda):
         return cls(**config)
 
 
+class OverlappingConcatenate(keras.layers.Lambda):
+
+    def __init__(self, overlap_size, reducer, **kwargs):
+        assert reducer in ['mean', 'sum', 'max', 'min']
+        self.overlap_size = overlap_size
+        self.reducer = reducer
+
+        def overlapper(inputs):
+            input1, input2 = inputs
+            shape1, shape2 = input1.shape.as_list(), input2.shape.as_list()
+
+            assert len(shape1) == len(shape2)
+            assert shape1[:-1] == shape2[:-1]
+            assert overlap_size <= min(shape1[-1], shape2[-1])
+            outer_slices = [slice(None)] * (len(shape1) - 1)
+
+            cropped1 = input1[outer_slices + [slice(None, shape1[-1] - overlap_size)]]
+            overlap1 = input1[outer_slices + [slice(shape1[-1] - overlap_size, None)]]
+            cropped2 = input2[outer_slices + [slice(overlap_size, None)]]
+            overlap2 = input2[outer_slices + [slice(None, overlap_size)]]
+
+            overlap_parts = tf.stack([overlap1, overlap2], axis=0)
+            reducer_fn = getattr(tf, 'reduce_' + reducer)
+            overlap = reducer_fn(overlap_parts, axis=0)
+
+            return tf.concat([cropped1, overlap, cropped2], axis=-1)
+
+        super(OverlappingConcatenate, self).__init__(overlapper, **kwargs)
+
+    def compute_output_shape(self, input_shapes):
+        shape1, shape2 = input_shapes
+        assert len(shape1) == len(shape2)
+        assert shape1[:-1] == shape2[:-1]
+        return shape1[:-1] + (shape1[-1] + shape2[-1] - self.overlap_size,)
+
+    def get_config(self):
+        config = {
+            'overlap_size': self.overlap_size,
+            'reducer': self.reducer,
+        }
+        # Skip the Lambda-specific config parameters as we recreate the Lambda layer ourselves
+        base_config = super(keras.layers.Lambda, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    @classmethod
+    def from_config(cls, config, custom_objects=None):
+        # Recover any numpy array arguments
+        config = config.copy()
+        for key in config:
+            if isinstance(config[key], dict):
+                if 'type' in config[key] and config[key]['type'] == 'ndarray':
+                    config[key] = np.array(config[key]['value'])
+
+        return cls(**config)
+
+
 class ParametrisedStochastic(keras.layers.Lambda):
 
     def __init__(self, codec_name, n_samples, **kwargs):
