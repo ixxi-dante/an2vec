@@ -138,9 +138,9 @@ class OrthogonalGaussian(Codec):
         assert concat_dim % 2 == 0
         # Extract the separate parameters
         self.dim = concat_dim // 2
-        outer_slices = [slice(None)] * (len(params.shape) - 1)
-        μ_flat = params[outer_slices + [slice(self.dim)]]
-        logS_flat = params[outer_slices + [slice(self.dim, 2 * self.dim)]]
+        outer_slices = (slice(None),) * (len(params.shape) - 1)
+        μ_flat = params[outer_slices + (slice(self.dim),)]
+        logS_flat = params[outer_slices + (slice(self.dim, 2 * self.dim),)]
 
         self.μ = K.expand_dims(μ_flat, -1)
 

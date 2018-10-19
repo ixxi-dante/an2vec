@@ -345,8 +345,8 @@ class InnerSlice(keras.layers.Lambda):
         self.inner_slice = inner_slice
 
         def slicer(input):
-            outer_slices = [slice(None)] * (len(input.shape) - 1)
-            return input[outer_slices + [inner_slice]]
+            outer_slices = (slice(None),) * (len(input.shape) - 1)
+            return input[outer_slices + (inner_slice,)]
 
         super(InnerSlice, self).__init__(slicer, **kwargs)
 
