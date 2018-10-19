@@ -594,6 +594,13 @@ def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
     inlayer : keras tensor
         Input to the GC layer
 
+    Returns
+    -------
+    placeholders : list of keras tensors
+        List of placeholder tensors necessary for the GC layer.
+    gc : keras tensor
+        Output of the GC layer.
+
     """
 
     adj = keras.layers.Input(tensor=tf.sparse_placeholder(K.floatx(), shape=(None, None),
@@ -634,6 +641,13 @@ def build_q(dims, overlap=0, use_bias=False, fullbatcher=None, minibatcher=None)
     minibatcher : generator, optional
         Generator used by the model to create minibatches. Defaults to None, in which case
         the model will fail to train or predict on minibatechs.
+
+    Returns
+    -------
+    q_model : nw2vec.ae.Model
+        The encoder model.
+    q_codecs : tuple of strings
+        Tuple of codec names used to interpret the encoder output. Currently a single codec.
 
     """
 
@@ -804,7 +818,16 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
 
 def build_vae(q_model_codecs, p_builder, n_ξ_samples, loss_weights=None):
     """Build a full VAE given an encoder, a decoder-builder, a number of embedding samples,
-    and weight losses."""
+    and weight losses.
+
+    Returns
+    -------
+    model : nw2vec.ae.Model
+        The VAE model.
+    codoc_names : tuple of strings
+        The list of codec names used to interpret the outputs of the VAE.
+
+    """
 
     # Extract the encoder's codec.
     q, q_codecs = q_model_codecs
