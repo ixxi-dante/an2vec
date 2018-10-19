@@ -27,7 +27,7 @@ it only includes the top-level required packages without versions, and conda wil
 
 ### Managing large data files
 
-This repository uses [git-annex](https://git-annex.branchable.com/) to manage large data files, which can be a bit complicated. To use this, first make sure you have git-annex installed. If not, and if you don't have root access (e.g. in a HPC environment), you can install it inside a dedicated Anaconda environment.
+This repository uses [git-annex](https://git-annex.branchable.com/) to manage large data files, which can be a bit complicated. To use this, first make sure you have git-annex installed. If not, and if you don't have root access (e.g. in a HPC environment), Anaconda has it so you can install it inside a dedicated Anaconda environment.
 
 Then, from inside your copy of this repository, you tell git that you're using git-annex:
 
@@ -38,26 +38,25 @@ git annex enableremote warehouse-rsync
 
 (Note: the `warehouse-rsync` remote is a so-called "special" annex remote tracked in git, and was created using `git annex initremote warehouse-rsync type=rsync rsyncurl=blondy.lip.ens-lyon.fr:/warehouse/COMPLEXNET/nw2vec/annex encryption=none chunk=10Mib`. You don't need to do that again.)
 
+Now get a copy of all the large files in the `warehouse-rsync` repo:
+
+```bash
+git annex get .
+```
+
 Now whenever you want to add files to the annex:
 
 ```bash
+# Commit hashes of the large files
 git annex add <the files you want to add>
 git commit
-```
-
-The next step is to actually copy your large files to `warehouse-rsync`:
-
-```bash
+# Actually copy your large files to `warehouse-rsync`:
 git annex copy --to warehouse-rsync <the files you added>
+# Publish your changes upstream (the `--all` makes sure the `git-annex` branch is also pushed)
+git push --all
 ```
 
-Finally, publish your changes upstream:
-
-```
-git push --all  # This pushes the `git-annex` branch too, which tracks the hashes of data files
-```
-
-If the push operation fails because of a conflict on the `git-annex` branche, you need to merge the remote's version of the `git-annex` branch into yours. You can do that *without having to checkout that branch* by doing:
+If the push operation fails because of a conflict on the `git-annex` branch, you need to merge the remote's version of the `git-annex` branch into yours. You can do that *without having to checkout that branch* by doing:
 
 ```bash
 git pull
