@@ -19,31 +19,34 @@ from nw2vec import codecs
 
 class ModelBatchCheckpoint(cbks.Callback):
     """Save the model after every batch.
+
     `filepath` can contain named formatting options,
     which will be filled the value of `batch` and
     keys in `logs` (passed in `on_batch_end`).
     For example: if `filepath` is `weights.{batch:02d}-{val_loss:.2f}.hdf5`,
     then the model checkpoints will be saved with the batch number and
     the validation loss in the filename.
-    # Arguments
-        filepath: string, path to save the model file.
-        monitor: quantity to monitor.
-        verbose: verbosity mode, 0 or 1.
-        save_best_only: if `save_best_only=True`,
-            the latest best model according to
-            the quantity monitored will not be overwritten.
-        mode: one of {auto, min, max}.
-            If `save_best_only=True`, the decision
-            to overwrite the current save file is made
-            based on either the maximization or the
-            minimization of the monitored quantity. For `val_acc`,
-            this should be `max`, for `val_loss` this should
-            be `min`, etc. In `auto` mode, the direction is
-            automatically inferred from the name of the monitored quantity.
-        save_weights_only: if True, then only the model's weights will be
-            saved (`model.save_weights(filepath)`), else the full model
-            is saved (`model.save(filepath)`).
-        period: Interval (number of batches) between checkpoints.
+
+    Parameters
+    ----------
+    filepath: string, path to save the model file.
+    monitor: quantity to monitor.
+    verbose: verbosity mode, 0 or 1.
+    save_best_only: if `save_best_only=True`,
+        the latest best model according to
+        the quantity monitored will not be overwritten.
+    mode: one of {auto, min, max}.
+        If `save_best_only=True`, the decision
+        to overwrite the current save file is made
+        based on either the maximization or the
+        minimization of the monitored quantity. For `val_acc`,
+        this should be `max`, for `val_loss` this should
+        be `min`, etc. In `auto` mode, the direction is
+        automatically inferred from the name of the monitored quantity.
+    save_weights_only: if True, then only the model's weights will be
+        saved (`model.save_weights(filepath)`), else the full model
+        is saved (`model.save(filepath)`).
+    period: Interval (number of batches) between checkpoints.
     """
 
     def __init__(self, filepath, monitor='val_loss', verbose=0,
@@ -121,6 +124,21 @@ class ModelBatchCheckpoint(cbks.Callback):
 
 
 class Model(keras.Model):
+
+    """An augmented version of `keras.Model` which knows how to handle custom
+    fullbatching and minibatching.
+
+    Parameters
+    ----------
+    inputs, outputs : normal input/output layers or tensors for `keras.Model`.
+    fullbatcher : generator
+        The generator used to train on full batches.
+    minibatcher : generator
+        The generator used to train on mini-batches.
+    name : string
+        The name of the model.
+
+    """
 
     def __init__(self, inputs, outputs, fullbatcher=None, minibatcher=None, name=None):
         self.fullbatcher = fullbatcher
@@ -248,7 +266,7 @@ class Model(keras.Model):
                            shuffle=True,
                            initial_epoch=0,
                            check_array_lengths=True):
-        """Trains the model on data generated batch-by-batch by a Python generator
+        """Train the model on data generated batch-by-batch by a Python generator
         or an instance of `Sequence`.
 
         See `Model.fit_generator()` for the full documentation.
@@ -487,31 +505,70 @@ def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
 
 
 def build_q(dims, overlap=0, use_bias=False, fullbatcher=None, minibatcher=None):
+    """Build the encoder part of a VAE.
+
+    Parameters
+    ----------
+    dims : tuple of ints
+        Tuple containing (dim_data, dim_l1, dim_ξa, dim_ξb), which are the dimensions
+        of the successive layers in the encoder. `dim_data` is the dimension of the
+        input features. `dim_l1` the dimension that the first layer outputs. `dim_ξa`
+        and `dim_ξb` are the dimensions of the two parallel layers that are then combined
+        to form the embeddings (each of these layers is in fact double, in order to
+        generate μ and log(Σ), the parameters of the Gaussians from which we sample
+        to create embeddings)
+    overlap : int, optional
+        Size of the overlap between the parallel layers which are combined to form the embeddings.
+        The output of this encoder model will be of dimension `2 * (dim_ξa + dim_ξb - overlap)`
+        (the multiplication by 2 is because both μ and log(Σ) are generated, with Σ diagonal.
+        Defaults to 0.
+    use_bias : bool, optional
+        Whether or not to use bias in each of the layers of the encoder. Defaults to False.
+    fullbatcher : generator, optional
+        Generator used by the model to create fullbatches. Defaults to None, in which case
+        the model will try to use the raw data when training and predicting (and this will
+        not work given the way training is currently wired up, with a `target_func()` and all).
+    minibatcher : generator, optional
+        Generator used by the model to create minibatches. Defaults to None, in which case
+        the model will fail to train or predict on minibatechs.
+
+    """
+
+    # Extract arguments and check them.
     dim_data, dim_l1, dim_ξa, dim_ξb = dims
     assert overlap <= min(dim_ξa, dim_ξb)
 
+    # Input layer which receives the node features.
     q_input = keras.layers.Input(shape=(dim_data,), name='q_input')
 
+    # First layer: generate placeholders and output tensor
+    # Placeholders are used to feed each layer in the model with adjacency matrices
+    # and output masks, which are necessary for minibatching.
     q_layer1_placeholders, q_layer1 = gc_layer_with_placeholders(
         dim_l1, 'q_layer1', {'use_bias': use_bias, 'activation': 'relu'}, q_input)
 
+    # Parallel second layers: generate placeholders for the parallel μ and log(Σ) values.
     q_μa_flat_placeholders, q_μa_flat = gc_layer_with_placeholders(
         dim_ξa, 'q_mua_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
     q_logSa_flat_placeholders, q_logSa_flat = gc_layer_with_placeholders(
         dim_ξa, 'q_logSa_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
-
     q_μb_flat_placeholders, q_μb_flat = gc_layer_with_placeholders(
         dim_ξb, 'q_mub_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
     q_logSb_flat_placeholders, q_logSb_flat = gc_layer_with_placeholders(
         dim_ξb, 'q_logSb_flat', {'use_bias': use_bias, 'gather_mask': True}, q_layer1)
 
+    # Concatenate the output of the previous parallel layers into a single tensor, with overlap.
+    # The values that are overlapped are combined using the `reducer` argument
+    # (can be `mean`, `max`, `min`, `sum`).
     q_μ_flat = layers.OverlappingConcatenate(name='q_mu_flat', overlap_size=overlap,
                                              reducer='mean')([q_μa_flat, q_μb_flat])
     q_logS_flat = layers.OverlappingConcatenate(name='q_logS_flat', overlap_size=overlap,
                                                 reducer='mean')([q_logSa_flat, q_logSb_flat])
 
+    # Concatenate μ and log(Σ) into a single tensor, which is the output of the model.
     q_μlogS_flat = keras.layers.Concatenate(name='q_mulogS_flat')([q_μ_flat, q_logS_flat])
 
+    # Actually create the model, using all the placeholders created along the way.
     q_model = Model(inputs=([q_input]
                             + q_layer1_placeholders
                             + q_μa_flat_placeholders
@@ -522,6 +579,8 @@ def build_q(dims, overlap=0, use_bias=False, fullbatcher=None, minibatcher=None)
                     fullbatcher=fullbatcher,
                     minibatcher=minibatcher)
 
+    # Return the model and the name of the codec that should be used to interpret
+    # the output of the model.
     return q_model, ('OrthogonalGaussian',)
 
 
