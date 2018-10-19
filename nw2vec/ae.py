@@ -20,6 +20,8 @@ from nw2vec import codecs
 class ModelBatchCheckpoint(cbks.Callback):
     """Save the model after every batch.
 
+    Copied and extended from keras.callbacks.ModelCheckpoint.
+
     `filepath` can contain named formatting options,
     which will be filled the value of `batch` and
     keys in `logs` (passed in `on_batch_end`).
@@ -141,11 +143,24 @@ class Model(keras.Model):
     """
 
     def __init__(self, inputs, outputs, fullbatcher=None, minibatcher=None, name=None):
+        """Set the fullbatcher and minibatcher, then delegate to keras.Model.__init__."""
         self.fullbatcher = fullbatcher
         self.minibatcher = minibatcher
         return super(Model, self).__init__(inputs, outputs, name=name)
 
     def _get_feed_dict_and_translator(self):
+        """Get the model's feed_dict and a map of feed names to placeholder tensor names.
+
+        The feed_dict returned here is what `self.food()` uses; see that method
+        for more details.
+
+        The feed name to tensor name map simply lets us convert feed names, which
+        correspond to the layer names of the model (see how the batcher functions
+        generate feeds, in nw2vec.batching), into the underlying TF tensor names,
+        which are slightly more precise than just the layer name.
+
+        """
+
         # Get the model's `feed_dict`
         if (not hasattr(self, '_function_kwargs')
                 or not isinstance(self._function_kwargs, dict)
@@ -197,6 +212,27 @@ class Model(keras.Model):
 
     @contextmanager
     def food(self, feeds):
+        """Abstract over our hack to provide placeholder feeds to keras training.
+
+        Keras gives no direct access to the feed_dict dicts used when evaluating
+        its models, so changing its values across batches (which is necessary for
+        minibatching) is complicated.
+
+        Our solution is to give the model an empty feed_dict upon compilation
+        (see `build_vae()` below in this file), which is stored by Keras in the
+        model, and which we can recover and modify whenever we want to set
+        placeholder feeds for a particular evaluation.
+
+        This method uses this hack to provide a handy context manager that
+        you can use to feed placeholder values simply:
+
+        ```
+        with model.food(feeds):
+            model.train_on_batch(x, y)
+        ```
+
+        """
+
         feed_dict, feeds_to_tensors = self._get_feed_dict_and_translator()
 
         # `feeds` should provide values for all the input tensors we found
@@ -212,23 +248,38 @@ class Model(keras.Model):
         feed_dict.clear()
 
     def train_on_fed_batch(self, x, y, feeds={}, **kwargs):
+        """Train on a batch with placeholder feeds."""
         with self.food(feeds):
             return self.train_on_batch(x, y, **kwargs)
 
     def predict_fullbatch(self, **kwargs):
+        """Predict values on a full batch.
+
+        The kwargs are passed to the fullbatcher function, so must provide
+        what that function expects (see `nw2vec.batching.fullbatches()`).
+
+        """
+
         if self.fullbatcher is None:
             raise ValueError("Model has no fullbatcher")
-
-        assert 'features' in kwargs
 
         x, _, feeds = next(self.fullbatcher(self, **kwargs))
         return self.predict_on_fed_batch(x, feeds=feeds)
 
     def predict_minibatches(self, **kwargs):
+        """Predict values on a set of minibatches.
+
+        The kwargs are passed to the minibatcher function, so must provide
+        what that function expects (see `nw2vec,batching.pq_batches()').
+
+        Additionally, kwargs must provide a `steps_per_epoch` key which
+        defines how many minibatches to predict for.
+
+        """
+
         if self.minibatcher is None:
             raise ValueError("Model has no minibatcher")
 
-        assert 'features' in kwargs
         steps_per_epoch = kwargs.pop('steps_per_epoch')
 
         out = []
@@ -238,15 +289,45 @@ class Model(keras.Model):
         return out
 
     def predict_on_fed_batch(self, x, feeds={}):
+        """Predict on a batch with placeholder feeds."""
         with self.food(feeds):
             return self.predict_on_batch(x)
 
     def fit_fullbatches(self, batcher_kws={}, shuffle=False, check_array_lengths=False, **kwargs):
+        """Fit the model using the fullbatch generator.
+
+        `batcher_kws` points the fullbatcher to the actual data to train on
+        (which it uses to create the batches fed to the model). This function
+        simply calls the fullbatcher and delegates to `self.fit_generator_feed()`,
+        which receives all the `kwargs`. Read that method's documentation, as well
+        as `keras.Model.fit_generator()` for details on available arguments.
+
+        `shuffle` and `check_array_lengths` are here because they must be set to False
+        for this technique to work properly (keras must not reshuffle our batches,
+        and must not enforce too strict constraints on the shapes of the arrays produced
+        by the batch generator.
+
+        """
+
         return self.fit_generator_feed(self.fullbatcher(self, **batcher_kws), steps_per_epoch=1,
                                        shuffle=shuffle, check_array_lengths=check_array_lengths,
                                        **kwargs)
 
     def fit_minibatches(self, batcher_kws={}, shuffle=False, check_array_lengths=False, **kwargs):
+        """Fit the model using the minibatch generator.
+
+        `batcher_kws` points the minibatcher to the actual data to train on
+        (which it uses to create the batches fed to the model). This function
+        simply calls the minibatcher and delegates to `self.fit_generator_feed()`,
+        which receives all the `kwargs`. Read that method's documentation, as well
+        as `keras.Model.fit_generator()` for details on available arguments.
+
+        `shuffle` and `check_array_lengths` are here because they must be set to False
+        for this technique to work properly (keras must not reshuffle our batches,
+        and must not enforce too strict constraints on the shapes of the arrays produced
+        by the batch generator.
+
+        """
         return self.fit_generator_feed(self.minibatcher(self, **batcher_kws),
                                        shuffle=shuffle, check_array_lengths=check_array_lengths,
                                        **kwargs)
@@ -273,7 +354,13 @@ class Model(keras.Model):
 
         The only difference here is that the generator must also generate data for
         any native placeholders of the model.
+
+        Only use this if you know what you are doing (especially with the `shuffle`
+        and `check_array_lengths` parameters). If not, prefer `self.fit_fullbatches()`
+        or `self.fit_minibatches()`.
+
         """
+
         # Disable validation, as we haven't converted the code for this yet.
         # All related code is commented with a `disabled:` prefix.
         if validation_data is not None:
@@ -493,6 +580,22 @@ class Model(keras.Model):
 
 
 def gc_layer_with_placeholders(dim, name, gc_kwargs, inlayer):
+    """Generate a GC layer and its placeholders, and apply the GC layer to an input.
+
+    Parameters
+    ----------
+    dim : int
+        Output dimension of the GC layer (number of units).
+    name : string
+        Name of the layer.
+    gc_kwargs : dict
+        Keyword arguments passed to `nw2vec.layers.GC()` (such as
+        `use_bias`, `activation` and so on).
+    inlayer : keras tensor
+        Input to the GC layer
+
+    """
+
     adj = keras.layers.Input(tensor=tf.sparse_placeholder(K.floatx(), shape=(None, None),
                                                           name=name + '_adj'),
                              sparse=True,
@@ -586,13 +689,54 @@ def build_q(dims, overlap=0, use_bias=False, fullbatcher=None, minibatcher=None)
 
 def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use_bias=False,
                     embedding_slices=None, with_l1=True, share_l1=True):
-    assert feature_codec in ['SigmoidBernoulli', 'OrthogonalGaussian']
+    """Create a function that applies the decoder to an input tensor.
 
+    Parameters
+    ----------
+    dims : tuple of 4 ints
+        The first two elements are `dim_data` (the dimension of the reconstructed output
+        features) and `dim_l1` (the output dimension of the intermediate layer, if it
+        is requested by 'with_l1'). The last two elements are ignored (but are usually
+        the adj and feature embedding dimensions, as passed to `build_q()`).
+    feature_codec : string, optional
+        Name of the codec used to interpret the feature reconstruction. Must be one of
+        'OrthogonalGaussian' or 'SigmoidBernoulli'. Defaults to 'SigmoidBernoulli'.
+    adj_kernel : (dim_l1, dim_l1) or (dim_ξ_adj, dim_ξ_adj) 2D ndarray, optional
+        If provided, represents a fixed kernel that will be used in the Bilinear adjacency
+        reconstruction layer (in which case it must match the dimensions of its input,
+        be it the adjacency embedding if `with_l1 == False`, or `dim_l1` if `with_l1 == True`).
+        If not provided (which is the default), that kernel will be trained over.
+    use_bias : bool, optional
+        Whether or not to use bias to each of the layers in the decoder. Defaults to False.
+    embedding_slices : 2-tuple of slice objects, optional
+        The first slice defines which dimensions of the input to the decoder (i.e. the embeddings)
+        are used for adjacency reconstruction. The second slice defines which dimensions are
+        used for feature reconstruction. Defaults to (slice(None), slice(None)), which
+        corresponds to using all embedding dimensions for both adjacency and feature
+        reconstruction.
+    with_l1 : bool, optional
+        Whether or not to use an intermediate layer in decoding. Defaults to True.
+    share_l1 : bool, optional
+        If `with_l1=True`, this defines whether the adjacency flow and the feature
+        flow share the same weights for their intermediate decoding layer. Defaults to False.
+
+    Returns
+    -------
+    p_builder : function
+        A function which, given an input tensor, produces the decoder's output on that tensor,
+        and the codecs necessary to interpret those outputs. In practice, give this function
+        to `build_vae()`, which will call it on the sampled embeddings.
+
+    """
+
+    # Validate arguments and set default values
+    assert feature_codec in ['SigmoidBernoulli', 'OrthogonalGaussian']
     if embedding_slices is None:
         adj_embedding_slice, v_embedding_slice = [slice(None), slice(None)]
     else:
         adj_embedding_slice, v_embedding_slice = embedding_slices
 
+    # Extract the dimensions we use.
     dim_data, dim_l1, _, _ = dims
 
     def p_builder(p_input):
@@ -600,8 +744,10 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
         p_input_adj = layers.InnerSlice(adj_embedding_slice)(p_input)
         p_input_v = layers.InnerSlice(v_embedding_slice)(p_input)
 
-        # Build layer1 for adj and v
+        # Build layer1 for adj and features, if requested, and have
+        # it shared between adjacency and features if requested.
         if share_l1:
+            # Shared intermediate layer.
             assert with_l1, "Can't share l1 if l1 is not requested"
             p_layer1 = keras.layers.Dense(dim_l1, use_bias=use_bias, activation='relu',
                                           kernel_regularizer='l2', bias_regularizer='l2',
@@ -610,6 +756,7 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
             p_penultimate_v = p_layer1(p_input_v)
         else:
             if with_l1:
+                # Unshared intermediate layer.
                 p_penultimate_adj = keras.layers.Dense(
                     dim_l1, use_bias=use_bias, activation='relu',
                     kernel_regularizer='l2', bias_regularizer='l2',
@@ -621,9 +768,11 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
                     name='p_layer1_v'
                 )(p_input_v)
             else:
+                # No intermediate layer.
                 p_penultimate_adj = p_input_adj
                 p_penultimate_v = p_input_v
 
+        # Prepare kwargs for the Bilinear adj decoder, then build it.
         adj_kwargs = {}
         if adj_kernel is not None:
             adj_kwargs['fixed_kernel'] = adj_kernel
@@ -633,6 +782,7 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
                                 bias_regularizer='l2',
                                 **adj_kwargs)([p_penultimate_adj, p_penultimate_adj])
 
+        # Finally build the feature decoder according to the requested codec.
         if feature_codec == 'SigmoidBernoulli':
             p_v = keras.layers.Dense(dim_data, use_bias=use_bias,
                                      kernel_regularizer='l2', bias_regularizer='l2',
@@ -653,15 +803,20 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
 
 
 def build_vae(q_model_codecs, p_builder, n_ξ_samples, loss_weights=None):
-    """TODOC"""
+    """Build a full VAE given an encoder, a decoder-builder, a number of embedding samples,
+    and weight losses."""
+
+    # Extract the encoder's codec.
     q, q_codecs = q_model_codecs
     assert len(q_codecs) == 1
     q_codec = q_codecs[0]
     del q_codecs
 
-    # Wire up the model
+    # Generate embedding samples.
     ξ = layers.ParametrisedStochastic(q_codec, n_ξ_samples)(q.output)
+    # Generate decodre output.
     p_outputs, p_codecs = p_builder(ξ)
+    # Create the actual model.
     model = Model(inputs=q.input, outputs=[q.output] + p_outputs,
                   fullbatcher=q.fullbatcher, minibatcher=q.minibatcher)
 
