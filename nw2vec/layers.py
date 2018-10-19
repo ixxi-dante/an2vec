@@ -340,6 +340,8 @@ class Bilinear(keras.layers.Layer):
 class InnerSlice(keras.layers.Lambda):
 
     def __init__(self, inner_slice, **kwargs):
+        if isinstance(inner_slice, (tuple, list)):
+            inner_slice = slice(*inner_slice)
         self.inner_slice = inner_slice
 
         def slicer(input):
@@ -353,7 +355,7 @@ class InnerSlice(keras.layers.Lambda):
 
     def get_config(self):
         config = {
-            'inner_slice': self.inner_slice,
+            'inner_slice': (self.inner_slice.start, self.inner_slice.stop, self.inner_slice.step),
         }
         # Skip the Lambda-specific config parameters as we recreate the Lambda layer ourselves
         base_config = super(keras.layers.Lambda, self).get_config()
