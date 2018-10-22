@@ -3,7 +3,7 @@
 
 # Tolerate errors (no "set -x") as we want to loop through all slaves whatever happens
 
-cat dask-slaves | grep -v '^#' | sed 's/ *#.*$//g' | while read slave_nprocs; do
+cat dask-slaves | grep -v '^#' | grep -v '^$' | sed 's/ *#.*$//g' | while read slave_nprocs; do
   slave_nprocs=($slave_nprocs)
   slave=${slave_nprocs[0]}
   echo "Stopping slave '$slave'"

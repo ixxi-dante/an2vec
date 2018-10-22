@@ -19,7 +19,7 @@ set -e
 # rm $ACTIVE_SLAVES
 
 #dask-ssh --scheduler $(hostname) --hostfile dask-slaves --log-directory $(pwd)/data/dask-cluster/log
-cat dask-slaves | grep -v '^#' | sed 's/ *#.*$//g' | while read slave_nprocs; do
+cat dask-slaves | grep -v '^#' | grep -v '^$' | sed 's/ *#.*$//g' | while read slave_nprocs; do
   slave_nprocs=($slave_nprocs)
   slave=${slave_nprocs[0]}
   nprocs=${slave_nprocs[1]}
