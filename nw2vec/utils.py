@@ -128,11 +128,19 @@ def scale_center(x, norm='l2'):
 
 
 # TOTEST
-def softmax(x, axes=[-1]):
+def softmax(x, axes=(-1,)):
+    assert isinstance(axes, (int, tuple))
+    if not isinstance(x, (np.ndarray, tf.Tensor)):
+        x = np.array(x)
+    if isinstance(x, np.ndarray):
+        backend = np
+    else:
+        # x is a tf.Tensor
+        backend = K
     if len(x.shape) == 0:
-        raise ValueError("Cannot perform softmax on 0D tensor")
-    e = tf.exp(x - tf.reduce_max(x, axis=axes, keep_dims=True))
-    s = tf.reduce_sum(e, axis=axes, keep_dims=True)
+        raise ValueError("Cannot perform softmax on 0D tensor/array")
+    e = backend.exp(x - backend.max(x, axis=axes, keepdims=True))
+    s = backend.sum(e, axis=axes, keepdims=True)
     return e / s
 
 
