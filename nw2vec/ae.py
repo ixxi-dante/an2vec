@@ -744,7 +744,7 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
     """
 
     # Validate arguments and set default values
-    assert feature_codec in ['SigmoidBernoulli', 'OrthogonalGaussian']
+    assert feature_codec in ['SigmoidBernoulli', 'OrthogonalGaussian', 'SoftmaxMultinomial']
     if embedding_slices is None:
         adj_embedding_slice, v_embedding_slice = [slice(None), slice(None)]
     else:
@@ -797,7 +797,7 @@ def build_p_builder(dims, feature_codec='SigmoidBernoulli', adj_kernel=None, use
                                 **adj_kwargs)([p_penultimate_adj, p_penultimate_adj])
 
         # Finally build the feature decoder according to the requested codec.
-        if feature_codec == 'SigmoidBernoulli':
+        if feature_codec in ['SigmoidBernoulli', 'SoftmaxMultinomial']:
             p_v = keras.layers.Dense(dim_data, use_bias=use_bias,
                                      kernel_regularizer='l2', bias_regularizer='l2',
                                      name='p_v')(p_penultimate_v)
