@@ -19,12 +19,22 @@ set -e
 # rm $ACTIVE_SLAVES
 
 #dask-ssh --scheduler $(hostname) --hostfile dask-slaves --log-directory $(pwd)/data/dask-cluster/log
-cat dask-slaves | grep -v '^#' | grep -v '^$' | sed 's/ *#.*$//g' | while read slave_nprocs; do
-  slave_nprocs=($slave_nprocs)
-  slave=${slave_nprocs[0]}
-  nprocs=${slave_nprocs[1]}
-  echo "Starting slave '$slave' with $nprocs processes"
-  ssh $slave "killall -u \$(whoami) dask-worker 2> /dev/null; . \$HOME/anaconda3/etc/profile.d/conda.sh; conda activate base36; screen -A -m -d -S dask -L $(pwd)/data/dask-cluster/log/$slave nice -n 19 dask-worker --nprocs $nprocs $(hostname):8786" < /dev/null
+
+if [ $# -ne 2 ]; then
+  echo "Usage: $(basename $0) <slaves-file> <niceness>"
+  exit 1
+fi
+
+SLAVES_FILE=$1
+NICENESS=$2
+
+cat ${SLAVES_FILE} | grep -v '^#' | grep -v '^$' | sed 's/ *#.*$//g' | while read slave_nprocs_nthreads; do
+  slave_nprocs_nthreads=($slave_nprocs_nthreads)
+  slave=${slave_nprocs_nthreads[0]}
+  nprocs=${slave_nprocs_nthreads[1]}
+  nthreads=${slave_nprocs_nthreads[2]}
+  echo "Starting slave '$slave' with $nprocs processes and $nthreads threads"
+  ssh $slave "killall -u \$(whoami) dask-worker 2> /dev/null; . \$HOME/anaconda3/etc/profile.d/conda.sh; conda activate base36; export OMP_NUM_THREADS=1; screen -A -m -d -S dask -L $(pwd)/data/dask-cluster/log/$slave nice -n $NICENESS dask-worker --nprocs $nprocs --nthreads $nthreads --no-bokeh $(hostname):8786" < /dev/null
 done
 
 echo "All done."

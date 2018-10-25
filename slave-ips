@@ -1,7 +1,8 @@
 #!/bin/bash
-# Stop the Dask cluster on the lip/crunch machines
+# List the ips of the lip/crunch slaves
 
-# Tolerate errors (no "set -x") as we want to loop through all slaves whatever happens
+# Don't tolerate errors
+set -e
 
 if [ $# -ne 1 ]; then
   echo "Usage: $(basename $0) <slaves-file>"
@@ -13,8 +14,8 @@ SLAVES_FILE=$1
 cat ${SLAVES_FILE} | grep -v '^#' | grep -v '^$' | sed 's/ *#.*$//g' | while read slave_nprocs; do
   slave_nprocs=($slave_nprocs)
   slave=${slave_nprocs[0]}
-  echo "Stopping slave '$slave'"
-  ssh $slave "killall -u slerique dask-worker" < /dev/null
+  nprocs=${slave_nprocs[1]}
+  echo "Slave '$slave' has ip $(dig A $slave.lip.ens-lyon.fr +short)"
 done
 
 echo "All done."
