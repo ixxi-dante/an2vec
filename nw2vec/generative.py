@@ -7,8 +7,8 @@ from nw2vec import utils
 @numba.njit
 def colors(n_nodes, ρ, π, correlation):
     n_clusters = len(ρ)
-    assert n_clusters == π.shape[0] == π.shape[1]
-    assert ρ.sum() == 1
+    assert n_clusters == π.shape[0] == π.shape[1], "ρ / π shapes"
+    assert np.abs(ρ.sum() - 1.0) < 1e-7, "ρ sum"
 
     # Generate labels
     Y = np.zeros((n_nodes, n_clusters))
@@ -28,13 +28,14 @@ def colors(n_nodes, ρ, π, correlation):
     A = np.minimum(A + A.T, np.ones_like(A))
 
     # Randomise according to correlation
-    n_permute = int(np.round(correlation * n_nodes))
+    n_permute = int(np.round((1 - correlation) * n_nodes))
     permute_idx = np.random.choice(np.arange(n_nodes), size=n_permute, replace=False)
     np.random.shuffle(permute_idx)
     permute_idx_sorted = np.array(sorted(permute_idx))
-    Y[permute_idx_sorted] = Y[permute_idx]
+    labels = Y.copy()
+    labels[permute_idx_sorted] = labels[permute_idx]
 
-    return A, Y
+    return Y, A, labels
 
 
 @numba.njit
