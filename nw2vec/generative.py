@@ -8,6 +8,7 @@ from nw2vec import utils
 def colors(n_nodes, ρ, π, correlation):
     n_clusters = len(ρ)
     assert n_clusters == π.shape[0] == π.shape[1]
+    assert ρ.sum() == 1
 
     # Generate labels
     Y = np.zeros((n_nodes, n_clusters))
