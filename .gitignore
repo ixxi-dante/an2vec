@@ -16,3 +16,7 @@ __pycache__/
 
 # Rust extension build directory
 /build
+
+# Dask stuff
+dask-worker-space
+dask-slaves.*
