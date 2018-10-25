@@ -18,4 +18,5 @@ __pycache__/
 /build
 
 # Dask stuff
-dask-slaves
+dask-worker-space
+dask-slaves.*
