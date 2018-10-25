@@ -4,7 +4,39 @@ import numpy as np
 from nw2vec import utils
 
 
-@numba.jit(nopython=True)
+@numba.njit
+def colors(n_nodes, ρ, π, correlation):
+    n_clusters = len(ρ)
+    assert n_clusters == π.shape[0] == π.shape[1]
+
+    # Generate labels
+    Y = np.zeros((n_nodes, n_clusters))
+    last_idx = 0
+    for i, ρi in enumerate(ρ):
+        idx = last_idx + int(np.round(ρi * n_nodes))
+        Y[last_idx:idx, i] = 1
+        last_idx = idx
+    Y[last_idx:, i] = 1
+
+    # Generate adjacency matrix
+    A_probs = Y @ π @ Y.T
+    A = np.zeros_like(A_probs)
+    for i in numba.prange(len(A_probs.flat)):
+        A.flat[i] = np.random.binomial(1, A_probs.flat[i])
+    # Make it symmetric
+    A = np.minimum(A + A.T, np.ones_like(A))
+
+    # Randomise according to correlation
+    n_permute = int(np.round(correlation * n_nodes))
+    permute_idx = np.random.choice(np.arange(n_nodes), size=n_permute, replace=False)
+    np.random.shuffle(permute_idx)
+    permute_idx_sorted = np.array(sorted(permute_idx))
+    Y[permute_idx_sorted] = Y[permute_idx]
+
+    return A, Y
+
+
+@numba.njit
 def stbm(n_nodes=100, n_clusters=40,  # Network parameters
          n_topics=5, n_documents=30, n_slots=140, vocabulary_size=50,  # Language parameters
          ρ=None, π=None, θ=None):
