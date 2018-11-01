@@ -124,6 +124,9 @@ def scale_center(x, norm='l2'):
         x_norm = np.abs(x).sum(1, keepdims=True)
     if norm == 'l2':
         x_norm = np.sqrt((x ** 2).sum(1, keepdims=True))
+    # Don't turn x into nans if there are rows full of zeros
+    zeros = np.where(x_norm == 0)
+    x_norm[zeros] = 1
     return x / x_norm
 
 
