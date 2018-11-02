@@ -29,6 +29,7 @@ dependencies:
 - progressbar2
 - pyarrow
 - pydot
+- pympler
 - pytest
 - scikit-learn
 - scipy
@@ -39,7 +40,7 @@ dependencies:
 # CPU tensorflow
 - tensorflow
 # GPU tensorflow (works on CBP)
-#- tensorflow-gpu
+#- tensorflow-gpu=1.9.0
 - tqdm
 - ujson
 - pip:
