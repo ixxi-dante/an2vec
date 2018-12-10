@@ -6,6 +6,26 @@ import numba
 from nw2vec import utils
 
 
+def test_select():
+    l = [(1, 1, 3, 'a'), (1, 2, 4, 'b'), (1, 3, 5, 'c'), (1, 3, 5, 'd')]
+
+    assert utils.select((1, 1, 3), l) == 'a'
+
+    with pytest.raises(AssertionError) as e:
+        utils.select((1, 2), l)
+    assert str(e.value) == "Not a single output"
+    assert utils.select((1, 2), l, unique_output=False) == (4, 'b')
+    assert utils.select((1, 2, 4), l, unique_output=False) == ('b',)
+
+    with pytest.raises(AssertionError) as e:
+        utils.select((1, 3, 5), l)
+    assert str(e.value) == "Not a single item"
+    assert utils.select((1, 3, 5), l, unique_item=False) == ['c', 'd']
+    assert utils.select((1, 1, 3), l, unique_item=False) == ['a']
+
+    assert utils.select((1, 3), l, unique_item=False, unique_output=False) == [(5, 'c'), (5, 'd')]
+
+
 def test_slice_size():
     assert utils.slice_size(slice(5), 6) == 5
     assert utils.slice_size(slice(5), 4) == 4
