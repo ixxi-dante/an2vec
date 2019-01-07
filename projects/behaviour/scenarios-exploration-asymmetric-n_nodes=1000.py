@@ -55,13 +55,17 @@ N_CLUSTERINGS = 2
 N_NODES = 1000
 N_CLUSTERS = 100
 SPILL_V2ADJ = int(os.environ['SPILL_V2ADJ'])
-OVERWRITE_RESULTS = True
+OVERWRITE_RESULTS = False
 COLORS_PATH = os.path.join(settings.BEHAVIOUR_PATH, 'colors')
 RESULTS_PATH = (COLORS_PATH
                 + '/S2_S3-ov_noov_asym-n_nodes={n_nodes}-n_clusters={n_clusters}'
                 + '-n_alphas={n_alphas}-n_models={n_models}-n_clusterings={n_clusterings}'
                 + '-spill_v2adj={spill_v2adj}'
                 + '-{data_name}.pkl')
+results_file = RESULTS_PATH.format(n_nodes=N_NODES, n_clusters=N_CLUSTERS,
+                                   n_alphas=N_ALPHAS, n_models=N_MODEL_SAMPLES, n_clusterings=N_CLUSTERINGS,
+                                   spill_v2adj=SPILL_V2ADJ,
+                                   data_name='histories')
 
 ##
 ## Creating the scenarios
@@ -327,17 +331,28 @@ def submit_training(**kws):
     scenario_key = (kws['aid'], kws['cid'])
     model_key = (kws['model_type'], kws['spill_v2adj'], kws['ov'], kws['sampling_id'])
 
-    history = client.submit(
-        make_train_vae, dims, kws['q_overlap'], kws['p_ξ_slices'], scenario_key,
-        # Don't show progress bars for these tasks, there are hundreds of them.
-        with_progress=False,
-        # They key uniquely identifies a task in Dask, so it's important we include the sampling id here,
-        # or Dask would just assume the different samples are the same task.
-        key=('make_train_vae', id(make_train_vae),  # function definition
-             scenario_key,  # scenario definition
-             model_key)  # model definition
-    )
+    if (scenario_key, model_key) in kws['gathered']:
+        history = None
+    else:
+        history = client.submit(
+            make_train_vae, dims, kws['q_overlap'], kws['p_ξ_slices'], scenario_key,
+            # Don't show progress bars for these tasks, there are hundreds of them.
+            with_progress=False,
+            # They key uniquely identifies a task in Dask, so it's important we include the sampling id here,
+            # or Dask would just assume the different samples are the same task.
+            key=('make_train_vae', id(make_train_vae),  # function definition
+                 scenario_key,  # scenario definition
+                 model_key)  # model definition
+        )
+
     return (scenario_key, model_key, history)
+
+# Open previously saved results if any
+gathered = {}
+if not OVERWRITE_RESULTS and os.path.exists(results_file):
+    with open(results_file, 'rb') as f:
+        gathered = pickle.load(f)
+
 
 # Sample several points for each (scenario, overlap).
 for sampling_id in tqdm(range(N_MODEL_SAMPLES)):
@@ -370,14 +385,17 @@ for sampling_id in tqdm(range(N_MODEL_SAMPLES)):
                         'model_type': model_type, 'spill_v2adj': SPILL_V2ADJ,
                         'ov': ov, 'sampling_id': sampling_id,
                         'q_overlap': q_overlap, 'p_ξ_slices': p_ξ_slices,
+                        'gathered': gathered,
                     })
-                    submitted[(skey, mkey)] = history
+                    if history is not None:
+                        submitted[(skey, mkey)] = history
+                    else:
+                        print("Skipped skey = {}, mkey = {}, already present in saved results"
+                              .format(skey, mkey))
 
 ##
 ## Gather successful tasks and save to disk
 ##
-
-gathered = {}
 
 def get_statuses():
     return Counter(map(lambda t: t.status, submitted.values()))
@@ -396,14 +414,9 @@ while statuses['pending'] + statuses['lost'] + statuses['finished'] > 0:
         submitted.pop((skey, mkey), None)
     gc.collect();
 
-    if OVERWRITE_RESULTS:
-        with open(RESULTS_PATH.format(n_nodes=N_NODES, n_clusters=N_CLUSTERS,
-                                      n_alphas=N_ALPHAS, n_models=N_MODEL_SAMPLES, n_clusterings=N_CLUSTERINGS,
-                                      spill_v2adj=SPILL_V2ADJ,
-                                      data_name='histories'),
-                  'wb') as f:
-            pickle.dump(gathered, f)
-        print("{}: saved gathered tasks".format(datetime.datetime.utcnow()))
+    with open(results_file, 'wb') as f:
+        pickle.dump(gathered, f)
+    print("{}: saved gathered tasks".format(datetime.datetime.utcnow()))
 
     time.sleep(300)
     statuses = get_statuses()
