@@ -11,6 +11,8 @@ addons:
     update: true
 
 before_install:
+  # Disable Boto to prevent it from looking for external compute clouds libraries
+  - export BOTO_CONFIG=/dev/null
   # Install Anaconda (https://conda.io/docs/user-guide/tasks/use-conda-with-travis-ci.html)
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
   - bash miniconda.sh -b -p $HOME/miniconda
