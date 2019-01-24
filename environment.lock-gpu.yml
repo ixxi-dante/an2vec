@@ -1,8 +1,8 @@
-name: base36
+name: base36-gpu
 channels:
   - defaults
 dependencies:
-  - _tflow_select=2.3.0=mkl
+  - _tflow_select=2.1.0=gpu
   - absl-py=0.6.1=py36_0
   - arrow-cpp=0.11.1=py36h5c3f529_0
   - asn1crypto=0.24.0=py36_0
@@ -27,6 +27,9 @@ dependencies:
   - click=7.0=py36_0
   - cloudpickle=0.6.1=py36_0
   - cryptography=2.4.2=py36h1ba5d50_0
+  - cudatoolkit=9.0=h13b8566_0
+  - cudnn=7.1.2=cuda9.0_0
+  - cupti=9.0.176=0
   - cycler=0.10.0=py36_0
   - cymem=2.0.2=py36hfd86e86_0
   - cython=0.29.2=py36he6710b0_0
@@ -184,8 +187,9 @@ dependencies:
   - statsmodels=0.9.0=py36h035aef0_0
   - tblib=1.3.2=py36_0
   - tensorboard=1.12.1=py36he6710b0_0
-  - tensorflow=1.12.0=mkl_py36h69b6ba0_0
-  - tensorflow-base=1.12.0=mkl_py36h3c3e929_0
+  - tensorflow=1.12.0=gpu_py36he68c306_0
+  - tensorflow-base=1.12.0=gpu_py36h8e0ae2d_0
+  - tensorflow-gpu=1.12.0=h0d30ee6_0
   - termcolor=1.1.0=py36_1
   - terminado=0.8.1=py36_1
   - testpath=0.4.2=py36_0
@@ -239,5 +243,5 @@ dependencies:
     - "git+https://github.com/ixxi-dante/keras@b50534bd55151c72782ecc630e21bb2e4d9a68d7#egg=keras"
     - "git+https://github.com/ixxi-dante/jwalk@03aac5dc0bd6d2dad496a00e4d0dc127ef2c87c0#egg=jwalk"
     - "--editable=."
-prefix: /home/sl/.conda/envs/base36
+prefix: /home/slerique/anaconda3/envs/base36-gpu
 
