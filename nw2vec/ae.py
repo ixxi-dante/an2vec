@@ -504,7 +504,7 @@ def build_q(dims, use_bias=False, fullbatcher=None, minibatcher=None):
                             + q_logS_flat_placeholders),
                     outputs=q_μlogS_flat,
                     fullbatcher=fullbatcher,
-                    minibatcher=minibatcher )
+                    minibatcher=minibatcher)
 
     return q_model, ('OrthogonalGaussian',)
 
