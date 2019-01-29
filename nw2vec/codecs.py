@@ -138,9 +138,9 @@ class OrthogonalGaussian(Codec):
         assert concat_dim % 2 == 0
         # Extract the separate parameters
         self.dim = concat_dim // 2
-        outer_slices = [slice(None)] * (len(params.shape) - 1)
-        μ_flat = params[outer_slices + [slice(self.dim)]]
-        logS_flat = params[outer_slices + [slice(self.dim, 2 * self.dim)]]
+        outer_slices = (slice(None),) * (len(params.shape) - 1)
+        μ_flat = params[outer_slices + (slice(self.dim),)]
+        logS_flat = params[outer_slices + (slice(self.dim, 2 * self.dim),)]
 
         self.μ = K.expand_dims(μ_flat, -1)
 
@@ -183,6 +183,24 @@ class OrthogonalGaussian(Codec):
         return .5 * (self.traceS2 - 2 * self.logdetS
                      + right_squeeze2(tf.matrix_transpose(self.μ) @ self.μ)
                      - self.dim)
+
+
+class SoftmaxMultinomial(Codec):
+
+    """TODOC"""
+
+    def __init__(self, params):
+        """TODOC"""
+
+        super(SoftmaxMultinomial, self).__init__(params)
+        self.params = params
+
+    # TOTEST
+    def logprobability(self, v):
+        # Shifting the parameters by their maximum value ensures better numerical stability for exp
+        shifted_params = self.params - K.max(self.params, axis=-1, keepdims=True)
+        sumexp_shifted_params = K.sum(K.exp(shifted_params), axis=-1, keepdims=True)
+        return K.sum(v * (shifted_params - K.log(sumexp_shifted_params)), axis=-1)
 
 
 class SigmoidBernoulli(Codec):

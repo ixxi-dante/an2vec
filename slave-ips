@@ -1,0 +1,21 @@
+#!/bin/bash
+# List the ips of the lip/crunch slaves
+
+# Don't tolerate errors
+set -e
+
+if [ $# -ne 1 ]; then
+  echo "Usage: $(basename $0) <slaves-file>"
+  exit 1
+fi
+
+SLAVES_FILE=$1
+
+cat ${SLAVES_FILE} | grep -v '^#' | grep -v '^$' | sed 's/ *#.*$//g' | while read slave_nprocs; do
+  slave_nprocs=($slave_nprocs)
+  slave=${slave_nprocs[0]}
+  nprocs=${slave_nprocs[1]}
+  echo "Slave '$slave' has ip $(dig A $slave.lip.ens-lyon.fr +short)"
+done
+
+echo "All done."

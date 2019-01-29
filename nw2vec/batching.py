@@ -248,7 +248,7 @@ def pq_batches(model, adj=None, features=None, target_func=None,
                    target_func(batch_adj, required_nodes, final_nodes),
                    feeds)
 
-def fullbatches(model, adj=None, features=None, target_func=None, neighbour_samples=None):
+def fullbatches(model, adj=None, features=None, target_func=None):
     if any(map(lambda a: a is None, [adj, features])):
         raise ValueError("None of adj, features, can be None")
     if target_func is None:
@@ -262,6 +262,6 @@ def fullbatches(model, adj=None, features=None, target_func=None, neighbour_samp
     nodes = np.arange(adj.shape[0])
     nodes_set = set(nodes)
 
+    _, feeds = _compute_batch(model, adj, nodes_set, None)
     while True:
-        _, feeds = _compute_batch(model, adj, nodes_set, neighbour_samples)
         yield (features, target_func(adj, nodes, nodes), feeds)

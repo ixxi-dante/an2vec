@@ -1,18 +1,40 @@
 #!/bin/bash
-# Start the Dask cluster on the crunch machines
+# Start the Dask cluster on the lip/crunch machines
 
 # Don't tolerate errors
 set -e
 
-# Configuration variables
-export HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop
+# Use this commented-out part to also set up Hadoop with Dask
+# # Configuration variables
+# export HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop
+#
+# # Get the list of active (non-excluded) slaves
+# ACTIVE_SLAVES=$(mktemp)
+# cat $HADOOP_CONF_DIR/slaves | grep -v -Ff $HADOOP_CONF_DIR/exclude > $ACTIVE_SLAVES
+#
+# # Start the cluster
+# HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop dask-ssh --scheduler $(hostname) --hostfile $ACTIVE_SLAVES --log-directory /datastore/complexnet/nw2vec/dask-cluster/log
+#
+# # Clean up
+# rm $ACTIVE_SLAVES
 
-# Get the list of active (non-excluded) slaves
-ACTIVE_SLAVES=$(mktemp)
-cat $HADOOP_CONF_DIR/slaves | grep -v -Ff $HADOOP_CONF_DIR/exclude > $ACTIVE_SLAVES
+#dask-ssh --scheduler $(hostname) --hostfile dask-slaves --log-directory $(pwd)/data/dask-cluster/log
 
-# Start the cluster
-HADOOP_CONF_DIR=/home/slerique/Code/hadoop/hadoop-2.9.0/etc/hadoop dask-ssh --scheduler $(hostname) --hostfile $ACTIVE_SLAVES --log-directory /datastore/complexnet/nw2vec/dask-cluster/log
+if [ $# -ne 2 ]; then
+  echo "Usage: $(basename $0) <slaves-file> <niceness>"
+  exit 1
+fi
 
-# Clean up
-rm $ACTIVE_SLAVES
+SLAVES_FILE=$1
+NICENESS=$2
+
+cat ${SLAVES_FILE} | grep -v '^#' | grep -v '^$' | sed 's/ *#.*$//g' | while read slave_nprocs_nthreads; do
+  slave_nprocs_nthreads=($slave_nprocs_nthreads)
+  slave=${slave_nprocs_nthreads[0]}
+  nprocs=${slave_nprocs_nthreads[1]}
+  nthreads=${slave_nprocs_nthreads[2]}
+  echo "Starting slave '$slave' with $nprocs processes and $nthreads threads"
+  ssh $slave "killall -u \$(whoami) dask-worker 2> /dev/null; . \$HOME/anaconda3/etc/profile.d/conda.sh; conda activate base36; export OMP_NUM_THREADS=1; screen -A -m -d -S dask -L $(pwd)/data/dask-cluster/log/$slave nice -n $NICENESS dask-worker --nprocs $nprocs --nthreads $nthreads --no-bokeh $(hostname):8786" < /dev/null
+done
+
+echo "All done."
