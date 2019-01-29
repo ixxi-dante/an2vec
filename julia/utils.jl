@@ -1,8 +1,9 @@
 module Utils
 
+
 export supertypes, finaleltype, scale_center, colorbar
 
-using Makie, Statistics, Flux.Tracker
+using Makie, Statistics, Flux.Tracker, LinearAlgebra, LightGraphs
 
 function supertypes(T)
     current = T
@@ -22,9 +23,21 @@ function scale_center(x; dims = 1)
     x ./ norm
 end
 
+logitbinarycrossentropy(logŷ, y; pos_weight = 1) = (1 - y) * logŷ + (1 + (pos_weight - 1) * y) * (log(1 + exp(-abs(logŷ))) + max(-logŷ, 0))
+
+adjacency_matrix_diag(g) = adjacency_matrix(g) + Matrix(I, size(g)...)
+
+function markersize(xy)
+    (xmin, xmax), (ymin, ymax) = extrema(xy, dims = 2)
+    0.03 * max(xmax - xmin, ymax - ymin)
+end
+
+markersize(xy::TrackedArray) = markersize(xy.data)
+
 #function colorbar(x)
 #    a = range(minimum(x), stop = maximum(x), length = 100) |> collect
 #    heatmap(reshape(a, 1, :))
 #end
+
 
 end
