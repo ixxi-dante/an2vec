@@ -31,7 +31,7 @@ function scale_center(x; dims = 1)
     x ./ norm
 end
 
-"""Total probability of `y` for the categorical distributions defined by softmax(unormp)"""
+"""Total probability of `y` for the categorical distributions defined by softmax(unormp)."""
 function softmaxcategoricallogprob(unormp, y)
     shiftedunormp = unormp .- maximum(unormp, dims = 1)
     sum(y .* (shiftedunormp .- log.(sum(exp.(shiftedunormp), dims = 1))))
@@ -51,7 +51,6 @@ function markersize(xy)
     (xmin, xmax), (ymin, ymax) = extrema(xy, dims = 2)
     0.03 * max(xmax - xmin, ymax - ymin)
 end
-
 markersize(xy::TrackedArray) = markersize(xy.data)
 
 
