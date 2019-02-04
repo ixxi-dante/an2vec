@@ -13,14 +13,50 @@ using Flux, LightGraphs, LinearAlgebra, .Utils
 nobias(out::Integer) = fill(nothing, out)
 Flux.param(n::AbstractArray{Nothing}) = 0
 
-"""Overlap the rows of two arrays for `overlap` dimensions."""
-function voverlap(a, b, overlap)
+
+#
+# Helper layers
+#
+
+struct VOverlap{F}
+    overlap::Integer
+    reducer::F
+end
+Flux.@treelike VOverlap
+VOverlap(overlap) = VOverlap(overlap, mean)
+
+function Base.show(io::IO, o::VOverlap)
+    print(io, "VOverlap(", o.overlap)
+    o.reducer == mean || print(io, ", ", o.reducer)
+    print(io, ")")
+end
+
+function (o::VOverlap)(x1, x2)
     vcat(
-        a[1:end-overlap, :],
-        mean(a[end-overlap+1:end, :], b[1:overlap, :]),
-        b[1+overlap:end, :]
+        x1[1:end-o.overlap, :],
+        o.reducer(x1[end-o.overlap+1:end, :], x2[1:o.overlap, :]),
+        x2[1+o.overlap:end, :]
     )
 end
+
+
+struct Apply{V,T<:NTuple}
+    f::V
+    args::T
+    Apply(f, args...) = new{typeof(f), typeof(args)}(f, args)
+end
+Flux.@treelike Apply
+
+children(a::Apply) = (a.f, a.args...)
+mapchildren(f, a::Apply) = Apply(f(a.f), f.(a.args)...)
+
+function Base.show(io::IO, a::Apply)
+    print(io, "Apply(", a.f, ", ")
+    join(io, a.args, ", ")
+    print(io, ")")
+end
+
+(a::Apply)(x) = a.f(map(l -> l(x), a.args)...)
 
 
 #
