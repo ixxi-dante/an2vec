@@ -11,15 +11,15 @@ using Flux, LightGraphs, LinearAlgebra, .Utils
 
 """Helper to have no bias in Dense and GC layers."""
 nobias(out::Integer) = fill(nothing, out)
-Flux.param(n::AbstractArray{Nothing}) = 0
+Flux.param(n::AbstractArray{Nothing}) = fill(0, size(n))
 
 
 #
 # Helper layers
 #
 
-struct VOverlap{F}
-    overlap::Integer
+struct VOverlap{I<:Integer,F}
+    overlap::I
     reducer::F
 end
 Flux.@treelike VOverlap
@@ -31,7 +31,7 @@ function Base.show(io::IO, o::VOverlap)
     print(io, ")")
 end
 
-function (o::VOverlap)(x1, x2)
+@views function (o::VOverlap)(x1, x2)
     vcat(
         x1[1:end-o.overlap, :],
         o.reducer(x1[end-o.overlap+1:end, :], x2[1:o.overlap, :]),
@@ -63,8 +63,8 @@ end
 # Graph-convolutional layer
 #
 
-struct GC{T,U,F}
-    Anorm::AbstractArray
+struct GC{S<:AbstractArray,T,U,F}
+    Anorm::S
     W::T
     b::U
     σ::F
@@ -73,7 +73,7 @@ struct GC{T,U,F}
         Adiag_sumin_inv_sqrt = 1 ./ sqrt.(dropdims(sum(Adiag, dims = 1), dims = 1))
         Adiag_sumout_inv_sqrt = 1 ./ sqrt.(dropdims(sum(Adiag, dims = 2), dims = 2))
         Anorm = diagm(0 => Adiag_sumout_inv_sqrt) * Adiag * diagm(0 => Adiag_sumin_inv_sqrt)
-        new{T,U,F}(Anorm, W, b, σ)
+        new{typeof(Anorm),T,U,F}(Anorm, W, b, σ)
     end
 end
 GC(g, W, b) = GC(g, W, b, identity)
