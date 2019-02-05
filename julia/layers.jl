@@ -2,7 +2,7 @@ module Layers
 
 
 include("utils.jl")
-using Flux, LightGraphs, LinearAlgebra, .Utils
+using Flux, LightGraphs, LinearAlgebra, Memoize, .Utils
 
 
 #
@@ -66,16 +66,20 @@ end
 # Graph-convolutional layer
 #
 
+@memoize function adjacency_matrix_diag_norm(g::SimpleGraph)
+    Adiag = adjacency_matrix_diag(g)
+    Adiag_sumin_inv_sqrt = 1 ./ sqrt.(dropdims(sum(Adiag, dims = 1), dims = 1))
+    Adiag_sumout_inv_sqrt = 1 ./ sqrt.(dropdims(sum(Adiag, dims = 2), dims = 2))
+    diagm(0 => Adiag_sumout_inv_sqrt) * Adiag * diagm(0 => Adiag_sumin_inv_sqrt)
+end
+
 struct GC{S<:AbstractArray,T,U,F}
     Anorm::S
     W::T
     b::U
     σ::F
     function GC(g::SimpleGraph, W::T, b::U, σ::F) where {T,U,F}
-        Adiag = adjacency_matrix_diag(g)
-        Adiag_sumin_inv_sqrt = 1 ./ sqrt.(dropdims(sum(Adiag, dims = 1), dims = 1))
-        Adiag_sumout_inv_sqrt = 1 ./ sqrt.(dropdims(sum(Adiag, dims = 2), dims = 2))
-        Anorm = diagm(0 => Adiag_sumout_inv_sqrt) * Adiag * diagm(0 => Adiag_sumin_inv_sqrt)
+        Anorm = adjacency_matrix_diag_norm(g)
         new{typeof(Anorm),T,U,F}(Anorm, W, b, σ)
     end
 end
