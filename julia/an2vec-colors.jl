@@ -63,11 +63,14 @@ function parse_cliargs()
             arg_type = Int
             default = 1000
         "--savehistory"
-            help = "file to save training history to (as Bson)"
+            help = "file to save the training history (as Bson)"
             arg_type = String
             required = true
         "--saveweights"
-            help = "file to save final model weights to (as Bson)"
+            help = "file to save the final model weights and creation parameters (as Bson)"
+            arg_type = String
+        "--savedataset"
+            help = "file to save the training dataset (as Bson)"
             arg_type = String
     end
 
@@ -212,6 +215,9 @@ end
 
 function main()
     args = parse_cliargs()
+    savehistory, saveweights, savedataset = args["savehistory"], args["saveweights"], args["savedataset"]
+    saveweights == nothing && println("Warning: will not save model weights after training")
+    savedataset == nothing && println("Warning: will not save training dataset after training")
 
     println("Making the dataset")
     g, labels, features = dataset(args)
@@ -238,15 +244,20 @@ function main()
     end
 
     # Save results
-    savehistory, saveweights = args["savehistory"], args["saveweights"]
     println("Saving training history to \"$savehistory\"")
     @save savehistory history
     if saveweights != nothing
-        println("Saving final model weights to \"$saveweights\"")
+        println("Saving final model weights and creation parameters to \"$saveweights\"")
         weights = Tracker.data.(paramsvae)
-        @save saveweights weights
+        @save saveweights weights args
     else
-        println("Not saving model weights")
+        println("Not saving model weights or creation parameters")
+    end
+    if savedataset != nothing
+        println("Saving training dataset to \"$savedataset\"")
+        @save savedataset g labels features
+    else
+        println("Not saving training dataset")
     end
 end
 
