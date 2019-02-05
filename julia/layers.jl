@@ -56,7 +56,10 @@ function Base.show(io::IO, a::Apply)
     print(io, ")")
 end
 
-(a::Apply)(x) = a.f(map(l -> l(x), a.args)...)
+function (a::Apply)(x)
+    f, args = a.f, a.args
+    f(map(l -> l(x), args)...)
+end
 
 
 #
@@ -91,7 +94,10 @@ function Base.show(io::IO, l::GC)
     print(io, ")")
 end
 
-(a::GC)(x::AbstractArray) = a.σ.((a.W * x * a.Anorm) .+ a.b)
+function (a::GC)(x::AbstractArray)
+    W, Anorm, b, σ = a.W, a.Anorm, a.b, a.σ
+    σ.(W * x * Anorm .+ b)
+end
 
 
 #
@@ -110,7 +116,10 @@ function Bilin(in::Integer = nothing, σ = identity; initW = Flux.glorot_uniform
     return Bilin(W, σ)
 end
 
-(a::Bilin)(x::AbstractArray) = a.σ.(transpose(x) * a.W * x)
+function (a::Bilin)(x::AbstractArray)
+    W, σ = a.W, a.σ
+    σ.(transpose(x) * W * x)
+end
 
 
 end
