@@ -68,9 +68,9 @@ end
 
 @memoize function adjacency_matrix_diag_norm(g::SimpleGraph)
     Adiag = adjacency_matrix_diag(g)
-    Adiag_sumin_inv_sqrt = 1 ./ sqrt.(dropdims(sum(Adiag, dims = 1), dims = 1))
-    Adiag_sumout_inv_sqrt = 1 ./ sqrt.(dropdims(sum(Adiag, dims = 2), dims = 2))
-    diagm(0 => Adiag_sumout_inv_sqrt) * Adiag * diagm(0 => Adiag_sumin_inv_sqrt)
+    sumin = sum(Adiag, dims = 1)
+    sumout = sum(Adiag, dims = 2)
+    @. (Adiag / sqrt(sumout)) / sqrt(sumin)
 end
 
 struct GC{S<:AbstractArray,T,U,F}
