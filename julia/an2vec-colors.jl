@@ -1,7 +1,9 @@
 include("utils.jl")
 include("layers.jl")
+include("generative.jl")
 using .Utils
 using .Layers
+using .Generative
 
 using Flux
 using LightGraphs
@@ -39,6 +41,10 @@ function parse_cliargs()
             help = "extra-community connection probability"
             arg_type = Float64
             default = 0.01
+        "--correlation"
+            help = "correlation between colors and SBM communities"
+            arg_type = Float64
+            required = true
         "--gseed"
             help = "seed for generation of the graph"
             arg_type = Int
@@ -75,6 +81,7 @@ function parse_cliargs()
     end
 
     parsed = parse_args(ARGS, parse_settings)
+    @assert 0 <= parsed["correlation"] <= 1
     parsed["diml1"] = Int64(round(sqrt(parsed["l"] * (parsed["dimxiadj"] + parsed["dimxifeat"]))))
     parsed
 end
@@ -82,22 +89,14 @@ end
 
 """Define the graph and features."""
 function dataset(args)
-    l, k, p_in, p_out, gseed = args["l"], args["k"], args["p_in"], args["p_out"], args["gseed"]
+    l, k, p_in, p_out, gseed, correlation = args["l"], args["k"], args["p_in"], args["p_out"], args["gseed"], args["correlation"]
 
-    g = LightGraphs.SimpleGraphs.stochastic_block_model(
-        p_in * (k - 1), p_out * k,
-        k .* ones(UInt, l), seed = gseed
-    )
-    communities = [c for c in 1:l for i in 1:k]
-    labels = Flux.onehotbatch(communities, 1:l)
-    multin = DiscreteUniform(5, 19)
-    ufeatures = similar(labels, Float64)
-    for i in 1:size(ufeatures, 2)
-        probs = softmax(convert(Array{Float64}, labels[:, i]))
-        ufeatures[:, i] = rand(Multinomial(rand(multin), probs))
-    end
+    g, communities = Generative.make_sbm(l, k, p_in, p_out, gseed = gseed)
+    colors = Generative.make_colors(communities, correlation)
+    colorsoh = Utils.onehotmaxbatch(colors)
+    features = scale_center(colorsoh)
 
-    g, labels, scale_center(ufeatures)
+    g, colorsoh, features
 end
 
 

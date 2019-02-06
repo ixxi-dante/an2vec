@@ -3,7 +3,7 @@ module Utils
 
 export mean, scale_center, softmaxcategoricallogprob, logitbinarycrossentropy, adjacency_matrix_diag, randn_like, markersize, loadparams!
 
-using Statistics, Flux.Tracker, LinearAlgebra, LightGraphs
+using Statistics, Flux, LinearAlgebra, LightGraphs
 import Statistics.mean
 import Flux.loadparams!
 
@@ -50,6 +50,8 @@ function loadparams!(ps::Tracker.Params, xs)
     copyto!(Tracker.data(p), Tracker.data(x))
   end
 end
+
+onehotmaxbatch(a::AbstractArray) = Flux.onehotbatch(a, 1:maximum(a))
 
 
 #
