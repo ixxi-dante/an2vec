@@ -126,7 +126,7 @@ function make_vae(;g, feature_size, args)
         Dense(dimξfeat, diml1, Flux.relu, initb = Layers.nobias),
         Dense(diml1, feature_size, initb = Layers.nobias),
     )
-    @views dec(ξ) = (decadj(ξ[1:dimξadj, :]), decfeat(ξ[end-dimξfeat+1:end, :]))
+    dec(ξ) = (decadj(ξ[1:dimξadj, :]), decfeat(ξ[end-dimξfeat+1:end, :]))
 
     enc, sampleξ, dec, Flux.params(l1, lμ, llogσ), Flux.params(decadj, decfeat)
 end
