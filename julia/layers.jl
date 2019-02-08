@@ -112,12 +112,11 @@ struct Bilin{T,F}
     W::T
     σ::F
 end
-Bilin() = Bilin(identity)
 Flux.@treelike Bilin
 
-function Bilin(in::Integer = nothing, σ = identity; initW = Flux.glorot_uniform)
-    W = in == nothing ? 1 : param(initW(in, in))
-    return Bilin(W, σ)
+Bilin(σ = identity) = Bilin(I, σ)
+function Bilin(in::Integer, σ = identity; initW = Flux.glorot_uniform)
+    return Bilin(param(initW(in, in)), σ)
 end
 
 function (a::Bilin)(x::AbstractArray)
