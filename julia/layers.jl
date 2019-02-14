@@ -11,7 +11,7 @@ using Flux, LightGraphs, LinearAlgebra, Memoize, .Utils
 
 """Helper to have no bias in Dense and GC layers."""
 nobias(out::Integer) = fill(nothing, out)
-Flux.param(n::AbstractArray{Nothing}) = fill(0, size(n))
+Flux.param(n::AbstractArray{Nothing}) = fill(0f0, size(n))
 
 
 #
@@ -70,7 +70,8 @@ end
     Adiag = adjacency_matrix_diag(g)
     sumin = sum(Adiag, dims = 1)
     sumout = sum(Adiag, dims = 2)
-    @. (Adiag / sqrt(sumout)) / sqrt(sumin)
+    Anorm = @. (Adiag / sqrt(sumout)) / sqrt(sumin)
+    Array{Float32}(Anorm)
 end
 
 struct GC{S<:AbstractArray,T,U,F}

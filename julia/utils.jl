@@ -38,7 +38,7 @@ function softmaxcategoricallogprob(unormp, y)
     sum(y .* (shiftedunormp .- log.(sum(exp.(shiftedunormp), dims = 1))))
 end
 
-logitbinarycrossentropy(logŷ, y; pos_weight = 1) = (1 - y) * logŷ + (1 + (pos_weight - 1) * y) * (log(1 + exp(-abs(logŷ))) + max(-logŷ, 0))
+logitbinarycrossentropy(logŷ, y; pos_weight = 1.0f0) = (1.0f0 - y) * logŷ + (1.0f0 + (pos_weight - 1.0f0) * y) * (log(1.0f0 + exp(-abs(logŷ))) + max(-logŷ, 0.0f0))
 adjacency_matrix_diag(g) = adjacency_matrix(g) + Matrix(I, size(g)...)
 randn_like(target::A) where A<:AbstractArray{T} where T = randn(T, size(target))
 mean(a::AbstractArray...) = sum(a) / length(a)
