@@ -3,13 +3,13 @@ module Utils
 
 export mean, scale_center, softmaxcategoricallogprob, logitbinarycrossentropy, adjacency_matrix_diag, randn_like, markersize, loadparams!
 
-using Statistics, Flux, LinearAlgebra, LightGraphs
+using Statistics, Flux, LinearAlgebra, LightGraphs, SparseArrays
 import Statistics.mean
 import Flux.loadparams!
 
 
 #
-# Introspection helpers
+# Miscellaneous
 #
 
 function supertypes(T)
@@ -20,6 +20,8 @@ function supertypes(T)
         println(current)
     end
 end
+
+rowinmatrix(r::AbstractVector, m::AbstractMatrix) = any(all(reshape(r, 1, :) .== m, dims = 2))
 
 
 #
