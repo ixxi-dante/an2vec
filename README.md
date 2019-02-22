@@ -6,9 +6,9 @@ Bring those two things together! Do cool context- and language-aware stuff! Okay
 Setup
 -----
 
-First, run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
+First, using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 
-Next, using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
+Next, activate the environment and run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
 
 ### GPU-enabled computations on `grunch`
 

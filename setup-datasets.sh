@@ -10,4 +10,7 @@ unzip datasets/Flickr-dataset.zip -d datasets
 echo
 unzip datasets/YouTube-dataset.zip -d datasets
 echo
+echo "Converting GCN/GAE benchmark datasets to npz..."
+python julia/datasets-gcn-to-npz.py
+echo
 echo "All done!"

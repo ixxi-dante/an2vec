@@ -6,3 +6,6 @@ BlogCatalog-dataset/
 Flickr-dataset/
 YouTube-dataset/
 malariaDBLaNetworks2013/
+
+# GCN/GAE test datasets
+gae-benchmarks
