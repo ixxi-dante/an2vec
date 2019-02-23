@@ -95,10 +95,16 @@ function dataset(args)
 
     features = transpose(adjfeatures["features"])
 
-    # Make sure we have a non-weighted graph, with indices starting at 0
+    # Make sure we have a non-weighted graph
     @assert Set(adjfeatures["adjdata"]) == Set([1])
+
+    # Remove any diagonal elements in the matrix
     rows = adjfeatures["adjrow"]
     cols = adjfeatures["adjcol"]
+    nondiagindices = findall(rows .!= cols)
+    rows = rows[nondiagindices]
+    cols = cols[nondiagindices]
+    # Make sure indices start at 0
     @assert minimum(rows) == minimum(cols) == 0
 
     # Construct the graph
@@ -158,13 +164,13 @@ end
 
 
 """Define the function compting AUC and AP scores for model predictions (adjacency only)"""
-function make_perf_scorer(;enc, sampleξ, dec, g::SimpleGraph, test_true_edges, test_false_edges)
+function make_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edges, test_false_edges)
     # Convert test edge arrays to indices
     test_true_indices = CartesianIndex.(test_true_edges[:, 1], test_true_edges[:, 2])
     test_false_indices = CartesianIndex.(test_false_edges[:, 1], test_false_edges[:, 2])
 
     # Prepare ground truth values for test edges
-    Areal = Array(adjacency_matrix(g))
+    Areal = Array(adjacency_matrix(greal))
     real_true = Areal[test_true_indices]
     @assert real_true == ones(length(test_true_indices))
     real_false = Areal[test_false_indices]
@@ -301,7 +307,7 @@ function main()
         paramsenc = paramsenc, paramsdec = paramsdec)
     perf = make_perf_scorer(
         enc = enc, sampleξ = sampleξ, dec = dec,
-        g = g, test_true_edges = test_true_edges, test_false_edges = test_false_edges)
+        greal = g, test_true_edges = test_true_edges, test_false_edges = test_false_edges)
 
     if profilen != nothing
         println("Profiling loss runs...")
