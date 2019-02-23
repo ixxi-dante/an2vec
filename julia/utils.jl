@@ -31,6 +31,8 @@ rowinmatrix(r::AbstractVector, m::AbstractMatrix) = any(all(reshape(r, 1, :) .==
 function scale_center(x; dims = 1)
     x = x .- mean(x, dims = dims)
     norm = sqrt.(sum(x .^ 2, dims = dims))
+    zeros = findall(norm .== 0)
+    norm[zeros] = fill(one(eltype(norm)), size(zeros))
     x ./ norm
 end
 
