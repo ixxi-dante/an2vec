@@ -11,6 +11,7 @@ echo
 unzip datasets/YouTube-dataset.zip -d datasets
 echo
 echo "Converting GCN/GAE benchmark datasets to npz..."
+mkdir -p datasets/gae-benchmarks
 python julia/datasets-gcn-to-npz.py
 echo
 echo "All done!"
