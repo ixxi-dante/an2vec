@@ -122,38 +122,42 @@ function make_vae(;g, feature_size, args)
     diml1, dimξadj, dimξfeat, overlap = args["diml1"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
 
     # Encoder
-    l1 = Layers.GC(g, feature_size, diml1, Flux.relu, initb = Layers.nobias)
-    lμ = Layers.Apply(Layers.VOverlap(overlap),
-        Layers.GC(g, diml1, dimξadj, initb = Layers.nobias),
-        Layers.GC(g, diml1, dimξfeat, initb = Layers.nobias))
-    llogσ = Layers.Apply(Layers.VOverlap(overlap),
-        Layers.GC(g, diml1, dimξadj, initb = Layers.nobias),
-        Layers.GC(g, diml1, dimξfeat, initb = Layers.nobias))
-    enc(x) = (h = l1(x); (lμ(h), llogσ(h)))
-    encparams = Flux.params(l1, lμ, llogσ)
+
+    l1adj = Layers.GC(g, feature_size, diml1, Flux.relu, initb = Layers.nobias)
+    l1feat = Layers.GC(g, feature_size, diml1, Flux.relu, initb = Layers.nobias)
+
+    lμadj = Layers.GC(g, diml1, dimξadj, initb = Layers.nobias)
+    lμfeat = Layers.GC(g, diml1, dimξfeat, initb = Layers.nobias)
+
+    llogσadj = Layers.GC(g, diml1, dimξadj, initb = Layers.nobias)
+    llogσfeat = Layers.GC(g, diml1, dimξfeat, initb = Layers.nobias)
+
+    loverlap = Layers.VOverlap(overlap)
+
+    function enc(x)
+        hadj = l1adj(x)
+        hfeat = l1feat(x)
+    	(loverlap(lμadj(hadj), lμfeat(hfeat)), loverlap(llogσadj(hadj), llogσfeat(hfeat)))
+    end
+    encparams = Flux.params(l1adj, l1feat, lμadj, lμfeat, llogσadj, llogσfeat)
 
     # Sampler
     sampleξ(μ, logσ) = μ .+ exp.(logσ) .* randn_like(μ)
 
     # Decoder
-    # TODO: try with bias
-    decadj = Chain(
-        Dense(dimξadj, diml1, Flux.relu, initb = Layers.nobias),
-        Layers.Bilin(diml1)
-    )
-    # TODO: try with bias
+    decadj = Layers.Bilin()
     decfeat, decparams = if args["feature-distribution"] == Normal
         println("Info: using Gaussian feature decoder")
-        decfeatl1 = Dense(dimξfeat, diml1, Flux.relu, initb = Layers.nobias)
-        decfeatlμ = Dense(diml1, feature_size, initb = Layers.nobias)
-        decfeatllogσ = Dense(diml1, feature_size, initb = Layers.nobias)
+        decfeatl1 = Dense(dimξfeat, diml1, Flux.relu)
+        decfeatlμ = Dense(diml1, feature_size)
+        decfeatllogσ = Dense(diml1, feature_size)
         decfeat(ξ) = (h = decfeatl1(ξ); (decfeatlμ(h); decfeatllogσ(h)))
         decfeat, Flux.params(decadj, decfeatl1, decfeatlμ, decfeatllogσ)
     else
         println("Info: using non-Gaussian feature decoder")
         decfeat = Chain(
-            Dense(dimξfeat, diml1, Flux.relu, initb = Layers.nobias),
-            Dense(diml1, feature_size, initb = Layers.nobias),
+            Dense(dimξfeat, diml1, Flux.relu),
+            Dense(diml1, feature_size),
         )
         decfeat, Flux.params(decadj, decfeat)
     end
