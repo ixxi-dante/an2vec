@@ -25,8 +25,6 @@ using PyCall
 const klscale = 1e-3
 const regscale = 1e-3
 const profile_losses_filename = "an2vec-losses.jlprof"
-const supported_feature_distributions = [Bernoulli, Categorical, Normal]
-const feature_distributions_dict = Dict(lowercase(repr(d)) => d for d in supported_feature_distributions)
 
 """Parse CLI arguments."""
 function parse_cliargs()
@@ -40,10 +38,6 @@ function parse_cliargs()
             help = "percentage of edges to add/remove to training dataset for reconstruction testing"
             arg_type = Float64
             # default = 0.15
-            required = true
-        "--feature-distribution"
-            help = "which distribution do the features follow; must be one of " * join(keys(feature_distributions_dict), ", ")
-            arg_type = String
             required = true
         "--diml1"
             help = "dimension of intermediary layers"
@@ -74,7 +68,6 @@ function parse_cliargs()
     end
 
     parsed = parse_args(ARGS, parse_settings)
-    parsed["feature-distribution"] = feature_distributions_dict[parsed["feature-distribution"]]
     parsed
 end
 
@@ -162,7 +155,6 @@ end
 
 """Define the model losses."""
 function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramsenc, paramsdec)
-    feature_distribution = args["feature-distribution"]
     dimξadj, = args["dimxiadj"]
     Adiag = Array{Float32}(adjacency_matrix_diag(g))
     densityA = Float32(mean(adjacency_matrix(g)))
