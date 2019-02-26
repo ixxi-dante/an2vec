@@ -113,7 +113,7 @@ function dataset(args)
 
     # Check sizes for sanity
     @assert size(g, 1) == size(g, 2) == size(features, 2)
-    g, features, scale_center(features)
+    g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features))
 end
 
 
@@ -219,14 +219,14 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
 
     # Adjacency loss
     Ladj(logitApred) = (
-        0.5f0 * sum(logitbinarycrossentropy.(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1f0))
+        0.5f0 * sum(threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1f0))
         / (1f0 - densityA)
     )
     κadj = Float32(size(g, 1)^2 * log(2))
 
     # Features loss
     Lfeat(logitFpred, ::Type{Bernoulli}) = (
-        sum(logitbinarycrossentropy.(logitFpred, labels, pos_weight = (1f0 / densitylabels) - 1f0))
+        sum(threadedlogitbinarycrossentropy(logitFpred, labels, pos_weight = (1f0 / densitylabels) - 1f0))
         / (1f0 - densitylabels)
     )
     κfeat_bernoulli = Float32(prod(size(labels)) * log(2))
