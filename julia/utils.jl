@@ -36,50 +36,57 @@ function scale_center(x; dims = 1)
     x ./ norm
 end
 
+#
+# Losses
+#
+
+import Flux.Tracker: @grad, track, data, nobacksies
+
+
 """Total probability of `y` for the categorical distributions defined by softmax(unormp)."""
 function softmaxcategoricallogprob(unormp, y)
     shiftedunormp = unormp .- maximum(unormp, dims = 1)
     sum(y .* (shiftedunormp .- log.(sum(exp.(shiftedunormp), dims = 1))))
 end
 
-logitbinarycrossentropy(logŷ::T, y::T; pos_weight = 1f0) where T = (1f0 - y) * logŷ + (1f0 + (pos_weight - 1f0) * y) * (log(1f0 + exp(-abs(logŷ))) + max(-logŷ, 0f0))
 
-
-import Flux.Tracker: @grad, track, data, nobacksies
-
-function threadedlogitbinarycrossentropy!(out::AbstractArray{T}, logŷ::AbstractArray{T}, y::AbstractArray{T}; pos_weight) where T
+logitbinarycrossentropy(logŷ, y; pos_weight = 1) = (1 - y) * logŷ + (1 + (pos_weight - 1) * y) * (log(1 + exp(-abs(logŷ))) + max(-logŷ, 0))
+function threadedlogitbinarycrossentropy(logŷ::AbstractArray, y::AbstractArray; kw...)
     @assert size(logŷ) == size(y)
+    out =  similar(logŷ)
     Threads.@threads for i in eachindex(logŷ)
-        @inbounds out[i] = logitbinarycrossentropy(logŷ[i], y[i]; pos_weight = pos_weight)
+        @inbounds out[i] = logitbinarycrossentropy(logŷ[i], y[i]; kw...)
     end
     return out
 end
-threadedlogitbinarycrossentropy(logŷ, y; pos_weight = 1f0) = threadedlogitbinarycrossentropy!(similar(logŷ), logŷ, y, pos_weight = pos_weight)
-threadedlogitbinarycrossentropy(logŷ::TrackedArray, y; pos_weight = 1f0) = track(threadedlogitbinarycrossentropy, logŷ, y, pos_weight = pos_weight)
+threadedlogitbinarycrossentropy(logŷ::TrackedArray, y::AbstractArray; kw...) = track(threadedlogitbinarycrossentropy, logŷ, y; kw...)
 
-function ∇threadedlogitbinarycrossentropy_logits!(out::AbstractArray, Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
+function ∇threadedlogitbinarycrossentropy_logits(Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
+    out = similar(Δ)
     Threads.@threads for i in eachindex(out)
         @inbounds out[i] = Δ[i] * (σ(logŷ[i]) * (y[i] * (pos_weight - 1) + 1) - y[i] * pos_weight)
     end
     return out
 end
-
-function ∇threadedlogitbinarycrossentropy_labels!(out::AbstractArray, Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
+function ∇threadedlogitbinarycrossentropy_labels(Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
+    out = similar(Δ)
     Threads.@threads for i in eachindex(out)
         @inbounds out[i] = Δ[i] * (max(logŷ[i], 0) * (pos_weight - 1) - pos_weight * logŷ[i] + (pos_weight - 1) * log(1 + exp(-abs(logŷ[i]))))
     end
     return out
 end
-
-∇threadedlogitbinarycrossentropy_logits(Δ, logŷ, y; pos_weight) = ∇threadedlogitbinarycrossentropy_logits!(similar(Δ), Δ, logŷ, y; pos_weight = pos_weight)
-∇threadedlogitbinarycrossentropy_labels(Δ, logŷ, y; pos_weight) = ∇threadedlogitbinarycrossentropy_labels!(similar(Δ), Δ, logŷ, y; pos_weight = pos_weight)
-
-@grad function threadedlogitbinarycrossentropy(logŷ::AbstractArray{T}, y::AbstractArray{T}; pos_weight) where T
-    threadedlogitbinarycrossentropy(data(logŷ), data(y); pos_weight = pos_weight),
+@grad function threadedlogitbinarycrossentropy(logŷ::AbstractArray{T}, y::AbstractArray{T}; kw...) where T
+    threadedlogitbinarycrossentropy(data(logŷ), data(y); kw...),
         Δ -> nobacksies(:threadedlogitbinarycrossentropy,
-            (∇threadedlogitbinarycrossentropy_logits(data(Δ), data(logŷ), data(y); pos_weight = pos_weight),
+            (∇threadedlogitbinarycrossentropy_logits(data(Δ), data(logŷ), data(y); kw...),
              nothing))
 end
+
+
+# Here we drop the `log(2*pi) / 2` as it is constant
+# normalloglikelihood(μ, logσ, y) = logσ + (y - μ)^2 * exp(-2 * logσ) / 2
+# threadednormalloglikelihood(
+
 
 
 adjacency_matrix_diag(g) = adjacency_matrix(g) + Matrix(I, size(g)...)
