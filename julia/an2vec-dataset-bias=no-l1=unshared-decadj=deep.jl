@@ -188,9 +188,9 @@ function make_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edg
 
     function perf(x)
         μ = enc(x)[1]
-        Apred = σ.(dec(μ)[1]).data
-        pred_true = Apred[test_true_indices]
-        pred_false = Apred[test_false_indices]
+        Alogitpred = dec(μ)[1].data
+        pred_true = Utils.threadedσ(Alogitpred[test_true_indices])
+        pred_false = Utils.threadedσ(Alogitpred[test_false_indices])
         pred_all = vcat(pred_true, pred_false)
 
         metrics[:roc_auc_score](real_all, pred_all), metrics[:average_precision_score](real_all, pred_all)

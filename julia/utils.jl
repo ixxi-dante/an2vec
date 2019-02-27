@@ -46,12 +46,21 @@ import Flux.Tracker: @grad, track, data, nobacksies
 regularizer(params; l = 0.01f0) = l * sum(x -> sum(x.^2), params)
 
 
+function threadedσ!(out::AbstractArray, a::AbstractArray)
+    Threads.@threads for i in eachindex(out)
+        @inbounds out[i] = σ(a[i])
+    end
+    return out
+end
+threadedσ(a) = threadedσ!(similar(a), a)
+
+
 klnormal(μ, logσ) = (exp(2logσ) + μ^2 - 1 - 2logσ) / 2
 
 function threadedklnormal!(out::AbstractArray, μ::AbstractArray, logσ::AbstractArray)
     @assert size(μ) == size(logσ)
     Threads.@threads for i in eachindex(out)
-        out[i] = klnormal(μ[i], logσ[i])
+        @inbounds out[i] = klnormal(μ[i], logσ[i])
     end
     return out
 end
