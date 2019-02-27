@@ -43,6 +43,12 @@ end
 import Flux.Tracker: @grad, track, data, nobacksies
 
 
+regularizer(params; l = 0.01f0) = l * sum(x -> sum(x.^2), params)
+
+
+klnormal(μ, logσ) = (exp(2logσ) + μ^2 - 1 - 2logσ) / 2
+
+
 """Total probability of `y` for the categorical distributions defined by softmax(unormp)."""
 function softmaxcategoricallogprob(unormp, y)
     shiftedunormp = unormp .- maximum(unormp, dims = 1)
@@ -87,8 +93,7 @@ end
 end
 
 
-# Here we drop the `log(2*pi) / 2` as it is constant
-normallogprobloss(μ, logσ, y) = logσ + (y - μ)^2 * exp(-2 * logσ) / 2
+normallogprobloss(μ, logσ, y) = log(2π) / 2 + logσ + (y - μ)^2 * exp(-2logσ) / 2
 
 function threadednormallogprobloss!(out::AbstractArray, μ::AbstractArray, logσ::AbstractArray, y::AbstractArray)
     @assert size(μ) == size(logσ) == size(y)
@@ -103,7 +108,7 @@ threadednormallogprobloss(μ::TrackedArray, logσ::TrackedArray, y) = track(thre
 function ∇threadednormallogprobloss_μ_logσ!(outμ::AbstractArray, outlogσ::AbstractArray, Δ::AbstractArray, μ::AbstractArray, logσ::AbstractArray, y::AbstractArray)
     Threads.@threads for i in eachindex(outμ)
         @inbounds begin
-            gradμ = (μ[i] - y[i]) * exp(-2 * logσ[i])
+            gradμ = (μ[i] - y[i]) * exp(-2logσ[i])
             outμ[i] = Δ[i] * gradμ
             outlogσ[i] = Δ[i] * (1 - (μ[i] - y[i]) * gradμ)
         end
