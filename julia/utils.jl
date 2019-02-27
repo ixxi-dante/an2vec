@@ -48,6 +48,39 @@ regularizer(params; l = 0.01f0) = l * sum(x -> sum(x.^2), params)
 
 klnormal(μ, logσ) = (exp(2logσ) + μ^2 - 1 - 2logσ) / 2
 
+function threadedklnormal!(out::AbstractArray, μ::AbstractArray, logσ::AbstractArray)
+    @assert size(μ) == size(logσ)
+    Threads.@threads for i in eachindex(out)
+        out[i] = klnormal(μ[i], logσ[i])
+    end
+    return out
+end
+threadedklnormal(μ, logσ) = threadedklnormal!(similar(μ), μ, logσ)
+threadedklnormal(μ::TrackedArray, logσ::TrackedArray) = track(threadedklnormal, μ, logσ)
+
+function ∇threadedklnormal_μ!(out::AbstractArray, Δ::AbstractArray, μ::AbstractArray, logσ::AbstractArray)
+    Threads.@threads for i in eachindex(out)
+        @inbounds out[i] = Δ[i] * μ[i]
+    end
+    return out
+end
+∇threadedklnormal_μ(Δ, μ, logσ) = ∇threadedklnormal_μ!(similar(Δ), Δ, μ, logσ)
+
+function ∇threadedklnormal_logσ!(out::AbstractArray, Δ::AbstractArray, μ::AbstractArray, logσ::AbstractArray)
+    Threads.@threads for i in eachindex(out)
+        @inbounds out[i] = Δ[i] * (exp(2logσ[i]) - 1)
+    end
+    return out
+end
+∇threadedklnormal_logσ(Δ, μ, logσ) = ∇threadedklnormal_logσ!(similar(Δ), Δ, μ, logσ)
+
+@grad function threadedklnormal(μ::AbstractArray, logσ::AbstractArray)
+    threadedklnormal(data(μ), data(logσ)),
+        Δ -> nobacksies(:threadedklnormal,
+            (∇threadedklnormal_μ(data(Δ), data(μ), data(logσ)),
+             ∇threadedklnormal_logσ(data(Δ), data(μ), data(logσ))))
+end
+
 
 """Total probability of `y` for the categorical distributions defined by softmax(unormp)."""
 function softmaxcategoricallogprob(unormp, y)

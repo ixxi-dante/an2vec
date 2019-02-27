@@ -211,7 +211,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     # TODO check normalisation constants
 
     # Kullback-Leibler divergence
-    Lkl(μ, logσ) = sum(Utils.klnormal.(μ, logσ))
+    Lkl(μ, logσ) = sum(Utils.threadedklnormal(μ, logσ))
     κkl = Float32(size(g, 1) * (dimξadj - overlap + dimξfeat))
 
     # Adjacency loss
