@@ -51,42 +51,74 @@ end
 
 
 logitbinarycrossentropy(logŷ, y; pos_weight = 1) = (1 - y) * logŷ + (1 + (pos_weight - 1) * y) * (log(1 + exp(-abs(logŷ))) + max(-logŷ, 0))
-function threadedlogitbinarycrossentropy(logŷ::AbstractArray, y::AbstractArray; kw...)
+
+function threadedlogitbinarycrossentropy!(out::AbstractArray, logŷ::AbstractArray, y::AbstractArray; kw...)
     @assert size(logŷ) == size(y)
-    out =  similar(logŷ)
-    Threads.@threads for i in eachindex(logŷ)
+    Threads.@threads for i in eachindex(out)
         @inbounds out[i] = logitbinarycrossentropy(logŷ[i], y[i]; kw...)
     end
     return out
 end
-threadedlogitbinarycrossentropy(logŷ::TrackedArray, y::AbstractArray; kw...) = track(threadedlogitbinarycrossentropy, logŷ, y; kw...)
+threadedlogitbinarycrossentropy(logŷ, y; kw...) = threadedlogitbinarycrossentropy!(similar(logŷ), logŷ, y; kw...)
+threadedlogitbinarycrossentropy(logŷ::TrackedArray, y; kw...) = track(threadedlogitbinarycrossentropy, logŷ, y; kw...)
 
-function ∇threadedlogitbinarycrossentropy_logits(Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
-    out = similar(Δ)
+function ∇threadedlogitbinarycrossentropy_logits!(out::AbstractArray, Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
     Threads.@threads for i in eachindex(out)
         @inbounds out[i] = Δ[i] * (σ(logŷ[i]) * (y[i] * (pos_weight - 1) + 1) - y[i] * pos_weight)
     end
     return out
 end
-function ∇threadedlogitbinarycrossentropy_labels(Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
-    out = similar(Δ)
+∇threadedlogitbinarycrossentropy_logits(Δ, logŷ, y; kw...) = ∇threadedlogitbinarycrossentropy_logits!(similar(Δ), Δ, logŷ, y; kw...)
+
+function ∇threadedlogitbinarycrossentropy_labels!(out::AbstractArray, Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
     Threads.@threads for i in eachindex(out)
         @inbounds out[i] = Δ[i] * (max(logŷ[i], 0) * (pos_weight - 1) - pos_weight * logŷ[i] + (pos_weight - 1) * log(1 + exp(-abs(logŷ[i]))))
     end
     return out
 end
-@grad function threadedlogitbinarycrossentropy(logŷ::AbstractArray{T}, y::AbstractArray{T}; kw...) where T
+∇threadedlogitbinarycrossentropy_labels(Δ, logŷ, y; kw...) = ∇threadedlogitbinarycrossentropy_labels!(similar(Δ), Δ, logŷ, y; kw...)
+
+@grad function threadedlogitbinarycrossentropy(logŷ::AbstractArray, y::AbstractArray; kw...)
     threadedlogitbinarycrossentropy(data(logŷ), data(y); kw...),
         Δ -> nobacksies(:threadedlogitbinarycrossentropy,
             (∇threadedlogitbinarycrossentropy_logits(data(Δ), data(logŷ), data(y); kw...),
+             # Ignore the ∇threadedlogitbinarycrossentropy_labels gradient
              nothing))
 end
 
 
 # Here we drop the `log(2*pi) / 2` as it is constant
-# normalloglikelihood(μ, logσ, y) = logσ + (y - μ)^2 * exp(-2 * logσ) / 2
-# threadednormalloglikelihood(
+normallogprobloss(μ, logσ, y) = logσ + (y - μ)^2 * exp(-2 * logσ) / 2
 
+function threadednormallogprobloss!(out::AbstractArray, μ::AbstractArray, logσ::AbstractArray, y::AbstractArray)
+    @assert size(μ) == size(logσ) == size(y)
+    Threads.@threads for i in eachindex(out)
+        @inbounds out[i] = normallogprobloss(μ[i], logσ[i], y[i])
+    end
+    return out
+end
+threadednormallogprobloss(μ, logσ, y) = threadednormallogprobloss!(similar(μ), μ, logσ, y)
+threadednormallogprobloss(μ::TrackedArray, logσ::TrackedArray, y) = track(threadednormallogprobloss, μ, logσ, y)
+
+function ∇threadednormallogprobloss_μ_logσ!(outμ::AbstractArray, outlogσ::AbstractArray, Δ::AbstractArray, μ::AbstractArray, logσ::AbstractArray, y::AbstractArray)
+    Threads.@threads for i in eachindex(outμ)
+        @inbounds begin
+            gradμ = (μ[i] - y[i]) * exp(-2 * logσ[i])
+            outμ[i] = Δ[i] * gradμ
+            outlogσ[i] = Δ[i] * (1 - (μ[i] - y[i]) * gradμ)
+        end
+    end
+    return outμ, outlogσ
+end
+∇threadednormallogprobloss_μ_logσ(Δ, μ, logσ, y) = ∇threadednormallogprobloss_μ_logσ!(similar(Δ), similar(Δ), Δ, μ, logσ, y)
+
+@grad function threadednormallogprobloss(μ::AbstractArray, logσ::AbstractArray, y::AbstractArray)
+    threadednormallogprobloss(data.([μ, logσ, y])...),
+        Δ -> nobacksies(:threadednormallogprobloss,
+            # The first two gradients (w.r.t. μ and logσ) are computed together
+            (∇threadednormallogprobloss_μ_logσ(data.([Δ, μ, logσ, y])...)...,
+             nothing))
+end
 
 
 adjacency_matrix_diag(g) = adjacency_matrix(g) + Matrix(I, size(g)...)

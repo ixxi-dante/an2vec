@@ -145,7 +145,7 @@ function make_vae(;g, feature_size, args)
         decfeatl1 = Dense(dimξfeat, diml1, Flux.relu, initb = Layers.nobias)
         decfeatlμ = Dense(diml1, feature_size, initb = Layers.nobias)
         decfeatllogσ = Dense(diml1, feature_size, initb = Layers.nobias)
-        decfeat(ξ) = (h = decfeatl1(ξ); (decfeatlμ(h); decfeatllogσ(h)))
+        decfeat(ξ) = (h = decfeatl1(ξ); (decfeatlμ(h), decfeatllogσ(h)))
         decfeat, Flux.params(decadj, decfeatl1, decfeatlμ, decfeatllogσ)
     else
         println("Info: using non-Gaussian feature decoder")
@@ -227,7 +227,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     κfeat_categorical = Float32(size(g, 1) * log(feature_size))
     κfeat(::Type{Categorical}) = κfeat_categorical
 
-    Lfeat(Fpreds, ::Type{Normal}) = ((μ, logσ) = Fpreds; 0.5f0 * sum(2f0 .* logσ .+ (labels .- μ).^2 .* exp.(-2f0 .* logσ)))
+    Lfeat(Fpreds, ::Type{Normal}) = ((μ, logσ) = Fpreds; sum(Utils.threadednormallogprobloss(μ, logσ, labels)))
     κfeat_normal = Float32(prod(size(labels)) * 0.5 * sum(labels.^2))
     κfeat(::Type{Normal}) = κfeat_normal
 
