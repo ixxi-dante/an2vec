@@ -96,7 +96,7 @@ function dataset(args)
 
     # Check sizes for sanity
     @assert size(g, 1) == size(g, 2) == size(features, 2)
-    g, features, scale_center(features)
+    g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features))
 end
 
 
@@ -141,9 +141,9 @@ function make_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edg
 
     function perf(x)
         μ = enc(x)[1]
-        Apred = σ.(dec(μ)[1]).data
-        pred_true = Apred[test_true_indices]
-        pred_false = Apred[test_false_indices]
+        Alogitpred = dec(μ)[1].data
+        pred_true = Utils.threadedσ(Alogitpred[test_true_indices])
+        pred_false = Utils.threadedσ(Alogitpred[test_false_indices])
         pred_all = vcat(pred_true, pred_false)
 
         metrics[:roc_auc_score](real_all, pred_all), metrics[:average_precision_score](real_all, pred_all)
@@ -160,13 +160,13 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     densityA = Float32(mean(adjacency_matrix(g)))
 
     # Kullback-Leibler divergence
-    Lkl(μ, logσ) = 0.5f0 * sum(exp.(2f0 .* logσ) + μ.^2 .- 1f0 .- 2f0 .* logσ)
+    Lkl(μ, logσ) = sum(Utils.threadedklnormal(μ, logσ))
     κkl = Float32(size(g, 1) * dimξadj)
 
     # Adjacency loss
     Ladj(logitApred) = (
-        0.5f0 * sum(logitbinarycrossentropy.(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1f0))
-        / (1f0 - densityA)
+        sum(threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
+        / (2 * (1 - densityA))
     )
     κadj = Float32(size(g, 1)^2 * log(2))
 
