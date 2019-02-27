@@ -207,24 +207,21 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
 
     # TODO check normalisation constants
 
-    # Decoder regularizer
-    decregularizer(l = 0.01f0) = l * sum(x -> sum(x.^2), paramsdec)
-
     # Kullback-Leibler divergence
-    Lkl(μ, logσ) = 0.5f0 * sum(exp.(2f0 .* logσ) + μ.^2 .- 1f0 .- 2f0 .* logσ)
+    Lkl(μ, logσ) = sum(Utils.klnormal.(μ, logσ))
     κkl = Float32(size(g, 1) * (dimξadj - overlap + dimξfeat))
 
     # Adjacency loss
     Ladj(logitApred) = (
-        0.5f0 * sum(threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1f0))
-        / (1f0 - densityA)
+        sum(threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
+        / (2 * (1 - densityA))
     )
     κadj = Float32(size(g, 1)^2 * log(2))
 
     # Features loss
     Lfeat(logitFpred, ::Type{Bernoulli}) = (
-        sum(threadedlogitbinarycrossentropy(logitFpred, labels, pos_weight = (1f0 / densitylabels) - 1f0))
-        / (1f0 - densitylabels)
+        sum(threadedlogitbinarycrossentropy(logitFpred, labels, pos_weight = (1f0 / densitylabels) - 1))
+        / (1 - densitylabels)
     )
     κfeat_bernoulli = Float32(prod(size(labels)) * log(2))
     κfeat(::Type{Bernoulli}) = κfeat_bernoulli
@@ -244,7 +241,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
         Dict("kl" => klscale * Lkl(μ, logσ) / κkl,
             "adj" => Ladj(logitApred) / κadj,
             "feat" => Lfeat(unormfeatpred, feature_distribution) / κfeat(feature_distribution),
-            "reg" => regscale * decregularizer())
+            "reg" => regscale * Utils.regularizer(paramsdec))
     end
 
     function loss(x)
