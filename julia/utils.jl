@@ -135,7 +135,7 @@ end
 end
 
 
-normallogprobloss(μ, logσ, y) = log(2π) / 2 + logσ + (y - μ)^2 * exp(-2logσ) / 2
+normallogprobloss(μ, logσ, y) = log(2oftype(μ, π)) / 2 + logσ + (y - μ)^2 * exp(-2logσ) / 2
 
 function threadednormallogprobloss!(out::AbstractArray, μ::AbstractArray, logσ::AbstractArray, y::AbstractArray)
     @assert size(μ) == size(logσ) == size(y)
