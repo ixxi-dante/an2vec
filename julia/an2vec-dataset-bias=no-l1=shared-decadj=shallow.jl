@@ -22,8 +22,8 @@ using PyCall
 
 
 # Parameters
-const klscale = 1e-3
-const regscale = 1e-3
+const klscale = 1f-3
+const regscale = 1f-3
 const profile_losses_filename = "an2vec-losses.jlprof"
 const supported_feature_distributions = [Bernoulli, Categorical, Normal]
 const feature_distributions_dict = Dict(lowercase(repr(d)) => d for d in supported_feature_distributions)
@@ -222,7 +222,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     κfeat(::Type{Categorical}) = κfeat_categorical
 
     Lfeat(Fpreds, ::Type{Normal}) = ((μ, logσ) = Fpreds; sum(Utils.threadednormallogprobloss(μ, logσ, labels)))
-    κfeat_normal = Float32(prod(size(labels)) * 0.5 * sum(labels.^2))
+    κfeat_normal = Float32(prod(size(labels)) * (log(2π) + mean(labels.^2)) / 2)
     κfeat(::Type{Normal}) = κfeat_normal
 
     # Total loss
