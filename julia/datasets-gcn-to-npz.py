@@ -5,9 +5,9 @@ import networkx as nx
 
 
 DATASET_NAMES = ['cora', 'citeseer', 'pubmed']
-DATASET_PARTS = ['x', 'tx', 'allx', 'graph']
+DATASET_PARTS = ['x', 'tx', 'allx', 'y', 'ty', 'ally', 'graph']
 INPATH = "gcn/data"
-OUTPATH = "datasets/gae-benchmarks"
+OUTPATH = 'datasets/gae-benchmarks'
 
 
 def parse_index_file(filename):
@@ -29,9 +29,10 @@ def load_files(name):
     adj = nx.adjacency_matrix(nx.from_dict_of_lists(parts['graph'])).tocoo()
     del parts['graph']
 
-    # Densify feature arrays
-    for part_name in parts.keys():
-        parts[part_name] = parts[part_name].toarray()
+    # Densify feature and label arrays
+    for part_name, part in parts.items():
+        if not isinstance(part, np.ndarray):
+            parts[part_name] = part.toarray()
 
     # Load test indices
     parts['test-indices'] = \
@@ -47,21 +48,33 @@ def load_files(name):
     if name == 'citeseer':
         test_indices_span = (parts['test-indices'].max()
                              - parts['test-indices'].min() + 1)
-        tx_extended = np.zeros((test_indices_span, parts['tx'].shape[1]))
         ordered_test_indices = np.sort(parts['test-indices'])
         assert ordered_test_indices.min() == parts['allx'].shape[0]
+        assert ordered_test_indices.min() == parts['ally'].shape[0]
+
+        tx_extended = np.zeros((test_indices_span, parts['tx'].shape[1]))
         tx_extended[ordered_test_indices - ordered_test_indices.min(), :] = \
             parts['tx']
         parts['tx'] = tx_extended
 
+        ty_extended = np.zeros((test_indices_span, parts['ty'].shape[1]))
+        ty_extended[ordered_test_indices - ordered_test_indices.min(), :] = \
+            parts['ty']
+        parts['ty'] = ty_extended
+
     return (adj.data, adj.row, adj.col), parts
 
 
-def assemble_features(parts):
-    features = np.vstack((parts['allx'], parts['tx']))
+def assemble_features_labels(parts):
     sorted_test_indices = np.sort(parts['test-indices'])
+
+    features = np.vstack((parts['allx'], parts['tx']))
     features[parts['test-indices'], :] = features[sorted_test_indices, :]
-    return features
+
+    labels = np.vstack((parts['ally'], parts['ty']))
+    labels[parts['test-indices'], :] = labels[sorted_test_indices, :]
+
+    return features, labels
 
 
 if __name__ == '__main__':
@@ -69,10 +82,10 @@ if __name__ == '__main__':
     for name in DATASET_NAMES:
         print('Loading {} dataset...'.format(name))
         (adjdata, adjrow, adjcol), feature_parts = load_files(name)
-        features = assemble_features(feature_parts)
+        features, labels = assemble_features_labels(feature_parts)
         npzpath = OUTPATH + "/{}.npz".format(name)
         print('Saving to "{}"...'.format(npzpath))
         np.savez_compressed(npzpath,
-                            features=features,
+                            features=features, labels=labels,
                             adjdata=adjdata, adjrow=adjrow, adjcol=adjcol)
     print('All done.')
