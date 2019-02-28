@@ -70,7 +70,7 @@ function parse_cliargs()
             arg_type = Int
             default = 1000
         "--savehistory"
-            help = "file to save the training history (as Bson)"
+            help = "file to save the training history (as npz)"
             arg_type = String
             required = true
         "--saveweights"
@@ -332,7 +332,7 @@ function main()
 
     # Save results
     println("Saving training history to \"$savehistory\"")
-    BSON.@save savehistory history
+    npzwrite(savehistory, Dict{String, Any}(history))
     if saveweights != nothing
         println("Saving final model weights and creation parameters to \"$saveweights\"")
         weights = Tracker.data.(paramsvae)
