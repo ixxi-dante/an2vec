@@ -1,7 +1,7 @@
 module Utils
 
 
-export mean, scale_center, softmaxcategoricallogprob, logitbinarycrossentropy, threadedlogitbinarycrossentropy, adjacency_matrix_diag, randn_like, markersize, loadparams!
+export mean, scale_center, adjacency_matrix_diag, randn_like, markersize, loadparams!
 
 using Statistics, Flux, LinearAlgebra, LightGraphs, SparseArrays
 import Statistics.mean
@@ -91,10 +91,40 @@ end
 end
 
 
-"""Total probability of `y` for the categorical distributions defined by softmax(unormp)."""
-function softmaxcategoricallogprob(unormp, y)
-    shiftedunormp = unormp .- maximum(unormp, dims = 1)
-    sum(y .* (shiftedunormp .- log.(sum(exp.(shiftedunormp), dims = 1))))
+function threadedcategoricallogprobloss!(out::AbstractVecOrMat, logxs::AbstractVecOrMat, ys::AbstractVecOrMat)
+    @assert size(logxs) == size(ys)
+    Threads.@threads for j in eachindex(out)
+        @inbounds begin
+            out[j] = zero(eltype(out))
+            for i = 1:size(logxs, 1)
+                out[j] -= logxs[i, j] * ys[i, j]
+            end
+        end
+    end
+    return out
+end
+threadedcategoricallogprobloss(logxs, ys) = threadedcategoricallogprobloss!(similar(logxs, size(logxs, 2)), logxs, ys)
+threadedcategoricallogprobloss(logxs::TrackedArray, ys) = track(threadedcategoricallogprobloss, logxs, ys)
+
+function ∇threadedcategoricallogprobloss_logxs!(out::AbstractArray, Δ::AbstractArray, logxs::AbstractArray, ys::AbstractArray)
+    @assert size(out) == size(logxs) == size(ys)
+    Threads.@threads for j in eachindex(Δ)
+        @inbounds begin
+            for i = 1:size(ys, 1)
+                out[i, j] = -Δ[j] * ys[i, j]
+            end
+        end
+    end
+    return out
+end
+∇threadedcategoricallogprobloss_logxs(Δ, logxs, ys) = ∇threadedcategoricallogprobloss_logxs!(similar(logxs), Δ, logxs, ys)
+
+@grad function threadedcategoricallogprobloss(logxs::AbstractArray, ys::AbstractArray)
+    threadedcategoricallogprobloss(data(logxs), data(ys)),
+        Δ -> nobacksies(:threadedcategoricallogprobloss,
+            (∇threadedcategoricallogprobloss_logxs(data(Δ), data(logxs), data(ys)),
+             # Ignore differentiation over `ys`
+             nothing))
 end
 
 

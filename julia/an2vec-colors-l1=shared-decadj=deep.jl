@@ -15,11 +15,12 @@ import BSON
 using ArgParse
 using Profile
 import JLD
+using NPZ
 
 
 # Parameters
-const klscale = 1e-3
-const regscale = 1e-3
+const klscale = 1f-3
+const regscale = 1f-3
 const profile_losses_filename = "an2vec-losses.jlprof"
 
 """Parse CLI arguments."""
@@ -72,7 +73,7 @@ function parse_cliargs()
             arg_type = Int
             default = 1000
         "--savehistory"
-            help = "file to save the training history (as Bson)"
+            help = "file to save the training history (as npz)"
             arg_type = String
             required = true
         "--saveweights"
@@ -102,9 +103,8 @@ function dataset(args)
     g, communities = Generative.make_sbm(l, k, p_in, p_out, gseed = gseed)
     colors = Generative.make_colors(communities, correlation)
     colorsoh = Array{Float32}(Utils.onehotmaxbatch(colors))
-    features = scale_center(colorsoh)
 
-    g, colorsoh, features
+    g, convert(Array{Float32}, colorsoh), convert(Array{Float32}, scale_center(colorsoh))
 end
 
 
@@ -146,32 +146,29 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     Adiag = Array{Float32}(adjacency_matrix_diag(g))
     densityA = Float32(mean(adjacency_matrix(g)))
 
-    # Decoder regularizer
-    decregularizer(l = 0.01f0) = l * sum(x -> sum(x.^2), paramsdec)
-
     # Kullback-Leibler divergence
-    Lkl(μ, logσ) = 0.5f0 * sum(exp.(2f0 .* logσ) + μ.^2 .- 1f0 .- 2f0 .* logσ)
+    Lkl(μ, logσ) = sum(Utils.threadedklnormal(μ, logσ))
     κkl = Float32(size(g, 1) * (dimξadj - overlap + dimξfeat))
 
     # Adjacency loss
     Ladj(logitApred) = (
-        0.5f0 * sum(logitbinarycrossentropy.(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1f0))
-        / (1f0 - densityA)
+        sum(Utils.threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
+        / (2 * (1 - densityA))
     )
     κadj = Float32(size(g, 1)^2 * log(2))
 
     # Features loss
-    Lfeat(unormfeatpred) = - softmaxcategoricallogprob(unormfeatpred, labels)
+    Lfeat(unormFpred) = sum(Utils.threadedcategoricallogprobloss(logsoftmax(unormFpred), labels))
     κfeat = Float32(size(g, 1) * log(feature_size))
 
     # Total loss
     function losses(x)
         μ, logσ = enc(x)
-        logitApred, unormfeatpred = dec(sampleξ(μ, logσ))
+        logitApred, unormFpred = dec(sampleξ(μ, logσ))
         Dict("kl" => klscale * Lkl(μ, logσ) / κkl,
             "adj" => Ladj(logitApred) / κadj,
-            "feat" => Lfeat(unormfeatpred) / κfeat,
-            "reg" => regscale * decregularizer())
+            "feat" => Lfeat(unormFpred) / κfeat,
+            "reg" => regscale * Utils.regularizer(paramsdec))
     end
 
     function loss(x)
@@ -261,7 +258,7 @@ function main()
 
     # Save results
     println("Saving training history to \"$savehistory\"")
-    BSON.@save savehistory history
+    npzwrite(savehistory, Dict{String, Any}(history))
     if saveweights != nothing
         println("Saving final model weights and creation parameters to \"$saveweights\"")
         weights = Tracker.data.(paramsvae)
