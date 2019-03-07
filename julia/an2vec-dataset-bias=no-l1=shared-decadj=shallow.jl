@@ -204,20 +204,20 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
 
     # Adjacency loss
     Ladj(logitApred) = (
-        sum(threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
+        sum(Utils.threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
         / (2 * (1 - densityA))
     )
     κadj = Float32(size(g, 1)^2 * log(2))
 
     # Features loss
     Lfeat(logitFpred, ::Type{Bernoulli}) = (
-        sum(threadedlogitbinarycrossentropy(logitFpred, labels, pos_weight = (1f0 / densitylabels) - 1))
+        sum(Utils.threadedlogitbinarycrossentropy(logitFpred, labels, pos_weight = (1f0 / densitylabels) - 1))
         / (1 - densitylabels)
     )
     κfeat_bernoulli = Float32(prod(size(labels)) * log(2))
     κfeat(::Type{Bernoulli}) = κfeat_bernoulli
 
-    Lfeat(unormFpred, ::Type{Categorical}) = - softmaxcategoricallogprob(unormFpred, labels)
+    Lfeat(unormFpred, ::Type{Categorical}) = sum(Utils.threadedcategoricallogprobloss(logsoftmax(unormFpred), labels))
     κfeat_categorical = Float32(size(g, 1) * log(feature_size))
     κfeat(::Type{Categorical}) = κfeat_categorical
 
@@ -228,10 +228,10 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     # Total loss
     function losses(x)
         μ, logσ = enc(x)
-        logitApred, unormfeatpred = dec(sampleξ(μ, logσ))
+        logitApred, unormFpred = dec(sampleξ(μ, logσ))
         Dict("kl" => klscale * Lkl(μ, logσ) / κkl,
             "adj" => Ladj(logitApred) / κadj,
-            "feat" => Lfeat(unormfeatpred, feature_distribution) / κfeat(feature_distribution),
+            "feat" => Lfeat(unormFpred, feature_distribution) / κfeat(feature_distribution),
             "reg" => regscale * Utils.regularizer(paramsdec))
     end
 

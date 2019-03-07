@@ -165,7 +165,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
 
     # Adjacency loss
     Ladj(logitApred) = (
-        sum(threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
+        sum(Utils.threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
         / (2 * (1 - densityA))
     )
     κadj = Float32(size(g, 1)^2 * log(2))
