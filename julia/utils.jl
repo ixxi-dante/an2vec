@@ -73,7 +73,7 @@ function ∇threadedklnormal_μ!(out::AbstractArray, Δ::AbstractArray, μ::Abst
     end
     return out
 end
-∇threadedklnormal_μ(Δ, μ, logσ) = ∇threadedklnormal_μ!(similar(Δ), Δ, μ, logσ)
+∇threadedklnormal_μ(Δ, μ, logσ) = ∇threadedklnormal_μ!(similar(μ), Δ, μ, logσ)
 
 function ∇threadedklnormal_logσ!(out::AbstractArray, Δ::AbstractArray, μ::AbstractArray, logσ::AbstractArray)
     Threads.@threads for i in eachindex(out)
@@ -81,7 +81,7 @@ function ∇threadedklnormal_logσ!(out::AbstractArray, Δ::AbstractArray, μ::A
     end
     return out
 end
-∇threadedklnormal_logσ(Δ, μ, logσ) = ∇threadedklnormal_logσ!(similar(Δ), Δ, μ, logσ)
+∇threadedklnormal_logσ(Δ, μ, logσ) = ∇threadedklnormal_logσ!(similar(logσ), Δ, μ, logσ)
 
 @grad function threadedklnormal(μ::AbstractArray, logσ::AbstractArray)
     threadedklnormal(data(μ), data(logσ)),
@@ -91,38 +91,50 @@ end
 end
 
 
-function threadedcategoricallogprobloss!(out::AbstractVecOrMat, logxs::AbstractVecOrMat, ys::AbstractVecOrMat)
-    @assert size(logxs) == size(ys)
+function threadedsoftmaxcategoricallogprobloss!(out::AbstractVecOrMat, xs::AbstractVecOrMat, ys::AbstractVecOrMat)
+    @assert size(xs) == size(ys)
     Threads.@threads for j in eachindex(out)
         @inbounds begin
+            xi_max = xs[1, j]
+            for i = 1:size(xs, 1)
+                xi_max = max(xi_max, xs[i, j])
+            end
+            s = zero(eltype(out))
+            for i = 1:size(xs, 1)
+                s += exp(xs[i, j] - xi_max)
+            end
             out[j] = zero(eltype(out))
-            for i = 1:size(logxs, 1)
-                out[j] -= logxs[i, j] * ys[i, j]
+            for i = 1:size(xs, 1)
+                out[j] -= ys[i, j] * (xs[i, j] - xi_max - log(s))
             end
         end
     end
     return out
 end
-threadedcategoricallogprobloss(logxs, ys) = threadedcategoricallogprobloss!(similar(logxs, size(logxs, 2)), logxs, ys)
-threadedcategoricallogprobloss(logxs::TrackedArray, ys) = track(threadedcategoricallogprobloss, logxs, ys)
+threadedsoftmaxcategoricallogprobloss(xs, ys) = threadedsoftmaxcategoricallogprobloss!(similar(xs, size(xs, 2)), xs, ys)
+threadedsoftmaxcategoricallogprobloss(xs::TrackedArray, ys) = track(threadedsoftmaxcategoricallogprobloss, xs, ys)
 
-function ∇threadedcategoricallogprobloss_logxs!(out::AbstractArray, Δ::AbstractArray, logxs::AbstractArray, ys::AbstractArray)
-    @assert size(out) == size(logxs) == size(ys)
+function ∇threadedsoftmaxcategoricallogprobloss_xs!(out::AbstractArray, Δ::AbstractArray, xs::AbstractArray, ys::AbstractArray)
+    smxs = softmax(xs)
     Threads.@threads for j in eachindex(Δ)
         @inbounds begin
-            for i = 1:size(ys, 1)
-                out[i, j] = -Δ[j] * ys[i, j]
+            s = zero(eltype(out))
+            for i = 1:size(xs, 1)
+                s += ys[i, j]
+            end
+            for i = 1:size(xs, 1)
+                out[i, j] = Δ[j] * (s * smxs[i, j]- ys[i, j])
             end
         end
     end
     return out
 end
-∇threadedcategoricallogprobloss_logxs(Δ, logxs, ys) = ∇threadedcategoricallogprobloss_logxs!(similar(logxs), Δ, logxs, ys)
+∇threadedsoftmaxcategoricallogprobloss_xs(Δ, xs, ys) = ∇threadedsoftmaxcategoricallogprobloss_xs!(similar(xs), Δ, xs, ys)
 
-@grad function threadedcategoricallogprobloss(logxs::AbstractArray, ys::AbstractArray)
-    threadedcategoricallogprobloss(data(logxs), data(ys)),
-        Δ -> nobacksies(:threadedcategoricallogprobloss,
-            (∇threadedcategoricallogprobloss_logxs(data(Δ), data(logxs), data(ys)),
+@grad function threadedsoftmaxcategoricallogprobloss(xs::AbstractArray, ys::AbstractArray)
+    threadedsoftmaxcategoricallogprobloss(data(xs), data(ys)),
+        Δ -> nobacksies(:threadedsoftmaxcategoricallogprobloss,
+            (∇threadedsoftmaxcategoricallogprobloss_xs(data(Δ), data(xs), data(ys)),
              # Ignore differentiation over `ys`
              nothing))
 end
@@ -146,7 +158,7 @@ function ∇threadedlogitbinarycrossentropy_logits!(out::AbstractArray, Δ::Abst
     end
     return out
 end
-∇threadedlogitbinarycrossentropy_logits(Δ, logŷ, y; kw...) = ∇threadedlogitbinarycrossentropy_logits!(similar(Δ), Δ, logŷ, y; kw...)
+∇threadedlogitbinarycrossentropy_logits(Δ, logŷ, y; kw...) = ∇threadedlogitbinarycrossentropy_logits!(similar(logŷ), Δ, logŷ, y; kw...)
 
 function ∇threadedlogitbinarycrossentropy_labels!(out::AbstractArray, Δ::AbstractArray, logŷ::AbstractArray, y::AbstractArray; pos_weight)
     Threads.@threads for i in eachindex(out)
@@ -154,7 +166,7 @@ function ∇threadedlogitbinarycrossentropy_labels!(out::AbstractArray, Δ::Abst
     end
     return out
 end
-∇threadedlogitbinarycrossentropy_labels(Δ, logŷ, y; kw...) = ∇threadedlogitbinarycrossentropy_labels!(similar(Δ), Δ, logŷ, y; kw...)
+∇threadedlogitbinarycrossentropy_labels(Δ, logŷ, y; kw...) = ∇threadedlogitbinarycrossentropy_labels!(similar(y), Δ, logŷ, y; kw...)
 
 @grad function threadedlogitbinarycrossentropy(logŷ::AbstractArray, y::AbstractArray; kw...)
     threadedlogitbinarycrossentropy(data(logŷ), data(y); kw...),
@@ -187,7 +199,7 @@ function ∇threadednormallogprobloss_μ_logσ!(outμ::AbstractArray, outlogσ::
     end
     return outμ, outlogσ
 end
-∇threadednormallogprobloss_μ_logσ(Δ, μ, logσ, y) = ∇threadednormallogprobloss_μ_logσ!(similar(Δ), similar(Δ), Δ, μ, logσ, y)
+∇threadednormallogprobloss_μ_logσ(Δ, μ, logσ, y) = ∇threadednormallogprobloss_μ_logσ!(similar(μ), similar(Δ), Δ, μ, logσ, y)
 
 @grad function threadednormallogprobloss(μ::AbstractArray, logσ::AbstractArray, y::AbstractArray)
     threadednormallogprobloss(data.([μ, logσ, y])...),

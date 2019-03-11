@@ -158,7 +158,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     κadj = Float32(size(g, 1)^2 * log(2))
 
     # Features loss
-    Lfeat(unormFpred) = sum(Utils.threadedcategoricallogprobloss(logsoftmax(unormFpred), labels))
+    Lfeat(unormFpred) = sum(Utils.threadedsoftmaxcategoricallogprobloss(unormFpred, labels))
     κfeat = Float32(size(g, 1) * log(feature_size))
 
     # Total loss
