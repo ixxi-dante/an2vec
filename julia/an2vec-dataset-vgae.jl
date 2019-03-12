@@ -22,8 +22,8 @@ using PyCall
 
 
 # Parameters
-const klscale = 1e-3
-const regscale = 1e-3
+const klscale = 1f-3
+const regscale = 1f-3
 const profile_losses_filename = "an2vec-losses.jlprof"
 
 """Parse CLI arguments."""
