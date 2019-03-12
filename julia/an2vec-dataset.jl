@@ -1,18 +1,12 @@
 include("utils.jl")
-include("layers.jl")
-include("generative.jl")
 include("dataset.jl")
+include("vae.jl")
 using .Utils
-using .Layers
-using .Generative
 using .Dataset
+using .VAE
 
 using Flux
 using LightGraphs
-using ProgressMeter
-using Statistics
-using Distributions
-using Random
 import BSON
 using ArgParse
 using Profile
@@ -22,11 +16,7 @@ using PyCall
 
 
 # Parameters
-const klscale = 1f-3
-const regscale = 1f-3
 const profile_losses_filename = "an2vec-losses.jlprof"
-const supported_feature_distributions = [Bernoulli, Categorical, Normal]
-const feature_distributions_dict = Dict(lowercase(repr(d)) => d for d in supported_feature_distributions)
 
 """Parse CLI arguments."""
 function parse_cliargs()
@@ -42,7 +32,7 @@ function parse_cliargs()
             # default = 0.15
             required = true
         "--feature-distribution"
-            help = "which distribution do the features follow; must be one of " * join(keys(feature_distributions_dict), ", ")
+            help = "which distribution do the features follow; must be one of " * join(keys(VAE.feature_distributions), ", ")
             arg_type = String
             required = true
         "--diml1"
@@ -65,6 +55,18 @@ function parse_cliargs()
             arg_type = Int
             # default = 1
             required = true
+        "--bias"
+            help = "activate/deactivate bias in the VAE"
+            arg_type = Bool
+            required = true
+        "--sharedl1"
+            help = "share/unshare encoder first layer across features and adjacency"
+            arg_type = Bool
+            required = true
+        "--decadjdeep"
+            help = "deep/shallow adjacency decoder"
+            arg_type = Bool
+            required = true
         "--nepochs"
             help = "number of epochs to train for"
             arg_type = Int
@@ -84,7 +86,8 @@ function parse_cliargs()
     end
 
     parsed = parse_args(ARGS, parse_settings)
-    parsed["feature-distribution"] = feature_distributions_dict[parsed["feature-distribution"]]
+    parsed["feature-distribution"] = VAE.feature_distributions[parsed["feature-distribution"]]
+    parsed["initb"] = if parsed["bias"]; zeros; else VAE.Layers.nobias; end
     parsed
 end
 
@@ -114,47 +117,6 @@ function dataset(args)
     # Check sizes for sanity
     @assert size(g, 1) == size(g, 2) == size(features, 2)
     g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features))
-end
-
-
-"""Make the model."""
-function make_vae(;g, feature_size, args)
-    diml1, dimξadj, dimξfeat, overlap = args["diml1"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
-
-    # Encoder
-    l1 = Layers.GC(g, feature_size, diml1, Flux.relu, initb = Layers.nobias)
-    lμ = Layers.Apply(Layers.VOverlap(overlap),
-        Layers.GC(g, diml1, dimξadj, initb = Layers.nobias),
-        Layers.GC(g, diml1, dimξfeat, initb = Layers.nobias))
-    llogσ = Layers.Apply(Layers.VOverlap(overlap),
-        Layers.GC(g, diml1, dimξadj, initb = Layers.nobias),
-        Layers.GC(g, diml1, dimξfeat, initb = Layers.nobias))
-    enc(x) = (h = l1(x); (lμ(h), llogσ(h)))
-    encparams = Flux.params(l1, lμ, llogσ)
-
-    # Sampler
-    sampleξ(μ, logσ) = μ .+ exp.(logσ) .* randn_like(μ)
-
-    # Decoder
-    decadj = Layers.Bilin()
-    decfeat, decparams = if args["feature-distribution"] == Normal
-        println("Info: using Gaussian feature decoder")
-        decfeatl1 = Dense(dimξfeat, diml1, Flux.relu, initb = Layers.nobias)
-        decfeatlμ = Dense(diml1, feature_size, initb = Layers.nobias)
-        decfeatllogσ = Dense(diml1, feature_size, initb = Layers.nobias)
-        decfeat(ξ) = (h = decfeatl1(ξ); (decfeatlμ(h), decfeatllogσ(h)))
-        decfeat, Flux.params(decadj, decfeatl1, decfeatlμ, decfeatllogσ)
-    else
-        println("Info: using non-Gaussian feature decoder")
-        decfeat = Chain(
-            Dense(dimξfeat, diml1, Flux.relu, initb = Layers.nobias),
-            Dense(diml1, feature_size, initb = Layers.nobias),
-        )
-        decfeat, Flux.params(decadj, decfeat)
-    end
-    dec(ξ) = (decadj(ξ[1:dimξadj, :]), decfeat(ξ[end-dimξfeat+1:end, :]))
-
-    enc, sampleξ, dec, encparams, decparams
 end
 
 
@@ -188,94 +150,6 @@ function make_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edg
 end
 
 
-"""Define the model losses."""
-function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramsenc, paramsdec)
-    feature_distribution = args["feature-distribution"]
-    dimξadj, dimξfeat, overlap = args["dimxiadj"], args["dimxifeat"], args["overlap"]
-    Adiag = Array{Float32}(adjacency_matrix_diag(g))
-    densityA = Float32(mean(adjacency_matrix(g)))
-    densitylabels = Float32(mean(labels))
-
-    # TODO check normalisation constants
-
-    # Kullback-Leibler divergence
-    Lkl(μ, logσ) = sum(Utils.threadedklnormal(μ, logσ))
-    κkl = Float32(size(g, 1) * (dimξadj - overlap + dimξfeat))
-
-    # Adjacency loss
-    Ladj(logitApred) = (
-        sum(Utils.threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
-        / (2 * (1 - densityA))
-    )
-    κadj = Float32(size(g, 1)^2 * log(2))
-
-    # Features loss
-    Lfeat(logitFpred, ::Type{Bernoulli}) = (
-        sum(Utils.threadedlogitbinarycrossentropy(logitFpred, labels, pos_weight = (1f0 / densitylabels) - 1))
-        / (1 - densitylabels)
-    )
-    κfeat_bernoulli = Float32(prod(size(labels)) * log(2))
-    κfeat(::Type{Bernoulli}) = κfeat_bernoulli
-
-    Lfeat(unormFpred, ::Type{Categorical}) = sum(Utils.threadedcategoricallogprobloss(logsoftmax(unormFpred), labels))
-    κfeat_categorical = Float32(size(g, 1) * log(feature_size))
-    κfeat(::Type{Categorical}) = κfeat_categorical
-
-    Lfeat(Fpreds, ::Type{Normal}) = ((μ, logσ) = Fpreds; sum(Utils.threadednormallogprobloss(μ, logσ, labels)))
-    κfeat_normal = Float32(prod(size(labels)) * (log(2π) + mean(labels.^2)) / 2)
-    κfeat(::Type{Normal}) = κfeat_normal
-
-    # Total loss
-    function losses(x)
-        μ, logσ = enc(x)
-        logitApred, unormFpred = dec(sampleξ(μ, logσ))
-        Dict("kl" => klscale * Lkl(μ, logσ) / κkl,
-            "adj" => Ladj(logitApred) / κadj,
-            "feat" => Lfeat(unormFpred, feature_distribution) / κfeat(feature_distribution),
-            "reg" => regscale * Utils.regularizer(paramsdec))
-    end
-
-    function loss(x)
-        sum(values(losses(x)))
-    end
-
-    losses, loss
-end
-
-
-"""Profile runs of a function"""
-function profile_fn(n::Int64, fn, args...)
-    for i = 1:n
-        fn(args...)
-    end
-end
-
-
-"""Train a VAE."""
-function train_vae!(;args, features, losses, loss, perf, paramsvae)
-    nepochs = args["nepochs"]
-
-    history = Dict(name => zeros(nepochs) for name in keys(losses(features)))
-    history["total loss"] = zeros(nepochs)
-    history["auc"] = zeros(nepochs)
-    history["ap"] = zeros(nepochs)
-
-    opt = ADAM(0.01)
-    @showprogress for i = 1:nepochs
-        Flux.train!(loss, paramsvae, [(features,)], opt)
-
-        lossparts = losses(features)
-        for (name, value) in lossparts
-            history[name][i] = value.data
-        end
-        history["total loss"][i] = sum(values(lossparts)).data
-        history["auc"][i], history["ap"][i] = perf(features)
-    end
-
-    history
-end
-
-
 function main()
     args = parse_cliargs()
     savehistory, saveweights, profilen = args["savehistory"], args["saveweights"], args["profile"]
@@ -291,9 +165,9 @@ function main()
     feature_size = size(features, 1)
 
     println("Making the model")
-    enc, sampleξ, dec, paramsenc, paramsdec = make_vae(
+    enc, sampleξ, dec, paramsenc, paramsdec = VAE.make_vae(
         g = gtrain, feature_size = feature_size, args = args)
-    losses, loss = make_losses(
+    losses, loss = VAE.make_losses(
         g = gtrain, labels = labels, feature_size = feature_size, args = args,
         enc = enc, sampleξ = sampleξ, dec = dec,
         paramsenc = paramsenc, paramsdec = paramsdec)
@@ -303,10 +177,10 @@ function main()
 
     if profilen != nothing
         println("Profiling loss runs...")
-        profile_fn(1, loss, features)  # Trigger compilation
+        Utils.repeat_fn(1, loss, features)  # Trigger compilation
         Profile.clear()
         Profile.init(n = 10000000)
-        @profile profile_fn(profilen, loss, features)
+        @profile Utils.repeat_fn(profilen, loss, features)
         li, lidict = Profile.retrieve()
         println("Saving profile results to \"$(profile_losses_filename)\"")
         JLD.@save profile_losses_filename li lidict
@@ -317,7 +191,7 @@ function main()
     println("Training...")
     paramsvae = Flux.Params()
     push!(paramsvae, paramsenc..., paramsdec...)
-    history = train_vae!(
+    history = VAE.train_vae!(
         args = args, features = features,
         losses = losses, loss = loss, perf = perf,
         paramsvae = paramsvae)

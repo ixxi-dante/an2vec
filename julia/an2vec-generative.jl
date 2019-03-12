@@ -1,16 +1,11 @@
 include("utils.jl")
-include("layers.jl")
 include("generative.jl")
+include("vae.jl")
 using .Utils
-using .Layers
 using .Generative
+using .VAE
 
 using Flux
-using LightGraphs
-using ProgressMeter
-using Statistics
-using Distributions
-using Random
 import BSON
 using ArgParse
 using Profile
@@ -19,8 +14,6 @@ using NPZ
 
 
 # Parameters
-const klscale = 1f-3
-const regscale = 1f-3
 const profile_losses_filename = "an2vec-losses.jlprof"
 
 """Parse CLI arguments."""
@@ -68,6 +61,18 @@ function parse_cliargs()
             arg_type = Int
             # default = 1
             required = true
+        "--bias"
+            help = "activate/deactivate bias in the VAE"
+            arg_type = Bool
+            required = true
+        "--sharedl1"
+            help = "share/unshare encoder first layer across features and adjacency"
+            arg_type = Bool
+            required = true
+        "--decadjdeep"
+            help = "deep/shallow adjacency decoder"
+            arg_type = Bool
+            required = true
         "--nepochs"
             help = "number of epochs to train for"
             arg_type = Int
@@ -92,6 +97,8 @@ function parse_cliargs()
     parsed = parse_args(ARGS, parse_settings)
     @assert 0 <= parsed["correlation"] <= 1
     parsed["diml1"] = Int64(round(sqrt(parsed["l"] * (parsed["dimxiadj"] + parsed["dimxifeat"]))))
+    parsed["initb"] = if parsed["bias"]; zeros; else VAE.Layers.nobias; end
+    parsed["feature-distribution"] = VAE.Categorical
     parsed
 end
 
@@ -105,107 +112,6 @@ function dataset(args)
     colorsoh = Array{Float32}(Utils.onehotmaxbatch(colors))
 
     g, convert(Array{Float32}, colorsoh), convert(Array{Float32}, scale_center(colorsoh))
-end
-
-
-"""Make the model."""
-function make_vae(;g, feature_size, args)
-    diml1, dimξadj, dimξfeat, overlap = args["diml1"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
-
-    # Encoder
-    l1 = Layers.GC(g, feature_size, diml1, Flux.relu, initb = Layers.nobias)
-    lμ = Layers.Apply(Layers.VOverlap(overlap),
-        Layers.GC(g, diml1, dimξadj, initb = Layers.nobias),
-        Layers.GC(g, diml1, dimξfeat, initb = Layers.nobias))
-    llogσ = Layers.Apply(Layers.VOverlap(overlap),
-        Layers.GC(g, diml1, dimξadj, initb = Layers.nobias),
-        Layers.GC(g, diml1, dimξfeat, initb = Layers.nobias))
-    enc(x) = (h = l1(x); (lμ(h), llogσ(h)))
-
-    # Sampler
-    sampleξ(μ, logσ) = μ .+ exp.(logσ) .* randn_like(μ)
-
-    # Decoder
-    decadj = Chain(
-        Dense(dimξadj, diml1, Flux.relu, initb = Layers.nobias),
-        Layers.Bilin(diml1)
-    )
-    decfeat = Chain(
-        Dense(dimξfeat, diml1, Flux.relu, initb = Layers.nobias),
-        Dense(diml1, feature_size, initb = Layers.nobias),
-    )
-    dec(ξ) = (decadj(ξ[1:dimξadj, :]), decfeat(ξ[end-dimξfeat+1:end, :]))
-
-    enc, sampleξ, dec, Flux.params(l1, lμ, llogσ), Flux.params(decadj, decfeat)
-end
-
-
-"""Define the model losses."""
-function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramsenc, paramsdec)
-    dimξadj, dimξfeat, overlap = args["dimxiadj"], args["dimxifeat"], args["overlap"]
-    Adiag = Array{Float32}(adjacency_matrix_diag(g))
-    densityA = Float32(mean(adjacency_matrix(g)))
-
-    # Kullback-Leibler divergence
-    Lkl(μ, logσ) = sum(Utils.threadedklnormal(μ, logσ))
-    κkl = Float32(size(g, 1) * (dimξadj - overlap + dimξfeat))
-
-    # Adjacency loss
-    Ladj(logitApred) = (
-        sum(Utils.threadedlogitbinarycrossentropy(logitApred, Adiag, pos_weight = (1f0 / densityA) - 1))
-        / (2 * (1 - densityA))
-    )
-    κadj = Float32(size(g, 1)^2 * log(2))
-
-    # Features loss
-    Lfeat(unormFpred) = sum(Utils.threadedsoftmaxcategoricallogprobloss(unormFpred, labels))
-    κfeat = Float32(size(g, 1) * log(feature_size))
-
-    # Total loss
-    function losses(x)
-        μ, logσ = enc(x)
-        logitApred, unormFpred = dec(sampleξ(μ, logσ))
-        Dict("kl" => klscale * Lkl(μ, logσ) / κkl,
-            "adj" => Ladj(logitApred) / κadj,
-            "feat" => Lfeat(unormFpred) / κfeat,
-            "reg" => regscale * Utils.regularizer(paramsdec))
-    end
-
-    function loss(x)
-        sum(values(losses(x)))
-    end
-
-    losses, loss
-end
-
-
-"""Profile runs of a function"""
-function profile_fn(n::Int64, fn, args...)
-    for i = 1:n
-        fn(args...)
-    end
-end
-
-
-"""Train a VAE."""
-function train_vae!(;args, features, losses, loss, paramsvae)
-    nepochs = args["nepochs"]
-
-    history = Dict(name => zeros(nepochs) for name in keys(losses(features)))
-    history["total"] = zeros(nepochs)
-
-    opt = ADAM(0.01)
-    @showprogress for i = 1:nepochs
-        Flux.train!(loss, paramsvae, [(features,)], opt)
-
-        lossparts = losses(features)
-        for (name, value) in lossparts
-            history[name][i] = value.data
-        end
-        history["total"][i] = sum(values(lossparts)).data
-    end
-
-    history
 end
 
 
@@ -224,19 +130,19 @@ function main()
     feature_size = size(features, 1)
 
     println("Making the model")
-    enc, sampleξ, dec, paramsenc, paramsdec = make_vae(
+    enc, sampleξ, dec, paramsenc, paramsdec = VAE.make_vae(
         g = g, feature_size = feature_size, args = args)
-    losses, loss = make_losses(
+    losses, loss = VAE.make_losses(
         g = g, labels = labels, feature_size = feature_size, args = args,
         enc = enc, sampleξ = sampleξ, dec = dec,
         paramsenc = paramsenc, paramsdec = paramsdec)
 
     if profilen != nothing
         println("Profiling loss runs...")
-        profile_fn(1, loss, features)  # Trigger compilation
+        Utils.repeat_fn(1, loss, features)  # Trigger compilation
         Profile.clear()
         Profile.init(n = 10000000)
-        @profile profile_fn(profilen, loss, features)
+        @profile Utils.repeat_fn(profilen, loss, features)
         li, lidict = Profile.retrieve()
         println("Saving profile results to \"$(profile_losses_filename)\"")
         JLD.@save profile_losses_filename li lidict
@@ -247,7 +153,7 @@ function main()
     println("Training...")
     paramsvae = Flux.Params()
     push!(paramsvae, paramsenc..., paramsdec...)
-    history = train_vae!(
+    history = VAE.train_vae!(
         args = args, features = features,
         losses = losses, loss = loss,
         paramsvae = paramsvae)

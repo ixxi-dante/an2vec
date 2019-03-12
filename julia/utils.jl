@@ -21,6 +21,12 @@ function supertypes(T)
     end
 end
 
+function repeat_fn(n::Int64, fn, args...)
+    for i = 1:n
+        fn(args...)
+    end
+end
+
 rowinmatrix(r::AbstractVector, m::AbstractMatrix) = any(all(reshape(r, 1, :) .== m, dims = 2))
 
 
