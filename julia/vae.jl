@@ -160,12 +160,13 @@ end
 
 function train_vae!(;args, features, paramsvae, losses, loss, perf = nothing)
     nepochs = args["nepochs"]
+    elt = eltype(features)
 
-    history = Dict(name => zeros(nepochs) for name in keys(losses(features)))
-    history["total loss"] = zeros(nepochs)
+    history = Dict(name => zeros(elt, nepochs) for name in keys(losses(features)))
+    history["total loss"] = zeros(elt, nepochs)
     if perf != nothing
-        history["auc"] = zeros(nepochs)
-        history["ap"] = zeros(nepochs)
+        history["auc"] = zeros(elt, nepochs)
+        history["ap"] = zeros(elt, nepochs)
     end
 
     opt = ADAM(0.01)
