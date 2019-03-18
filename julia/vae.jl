@@ -127,7 +127,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     # Features loss
     Lfeat(logitFpred, ::Type{Bernoulli}) = (
         sum(Utils.threadedlogitbinarycrossentropy(logitFpred, labels, pos_weight = (1f0 / densitylabels) - 1))
-        / (1 - densitylabels)
+        / (2 * (1 - densitylabels))
     )
     κfeat_bernoulli = Float32(prod(size(labels)) * log(2))
     κfeat(::Type{Bernoulli}) = κfeat_bernoulli
