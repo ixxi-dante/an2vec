@@ -21,27 +21,47 @@ function parse_cliargs()
     parse_settings = ArgParseSettings()
     @add_arg_table parse_settings begin
         "-l"
-            help = "number of communities"
+            help = "number of structural communities"
             arg_type = Int
             # default = 10
             required = true
         "-k"
-            help = "size of each community"
+            help = "size of each structural community"
             arg_type = Int
             # default = 10
             required = true
         "--p_in"
-            help = "intra-community connection probability"
+            help = "structural intra-community connection probability"
             arg_type = Float64
             default = 0.4
         "--p_out"
-            help = "extra-community connection probability"
+            help = "structural extra-community connection probability"
             arg_type = Float64
             default = 0.01
         "--correlation"
-            help = "correlation between colors and SBM communities"
+            help = "correlation between features and structural communities"
             arg_type = Float64
             required = true
+        "--featuretype"
+            help = "generative model for the features; either \"colors\" or \"sbm\""
+            arg_type = String
+            required = true
+        "--fsbm_l"
+            help = "number of sbmfeatures communities (ignore when using colors)"
+            arg_type = Int
+        "--fsbm_k"
+            help = "size of each sbmfeatures community (ignore when using colors)"
+            arg_type = Int
+        "--fsbm_p_in"
+            help = "sbmfeatures intra-community connection probability (ignore when using colors)"
+            arg_type = Float64
+        "--fsbm_p_out"
+            help = "sbmfeatures extra-community connection probability (ignore when using colors)"
+            arg_type = Float64
+        "--fsbm_seed"
+            help = "sbmfeatures graph seed"
+            arg_type = Int
+            default = -1
         "--gseed"
             help = "seed for generation of the graph"
             arg_type = Int
@@ -95,10 +115,17 @@ function parse_cliargs()
     end
 
     parsed = parse_args(ARGS, parse_settings)
+
     @assert 0 <= parsed["correlation"] <= 1
     parsed["diml1"] = Int64(round(sqrt(parsed["l"] * (parsed["dimxiadj"] + parsed["dimxifeat"]))))
     parsed["initb"] = if parsed["bias"]; zeros; else VAE.Layers.nobias; end
-    parsed["feature-distribution"] = VAE.Categorical
+    parsed["feature-distribution"] = if parsed["featuretype" ] == "colors"
+        VAE.Categorical
+    else
+        @assert parsed["featuretype"] == "sbm"
+        @assert all((k) -> parsed[k] != nothing, ["fsbm_l", "fsbm_k", "fsbm_p_in", "fsbm_p_out"])
+        VAE.Bernoulli
+    end
     parsed
 end
 
@@ -108,10 +135,18 @@ function dataset(args)
     l, k, p_in, p_out, gseed, correlation = args["l"], args["k"], args["p_in"], args["p_out"], args["gseed"], args["correlation"]
 
     g, communities = Generative.make_sbm(l, k, p_in, p_out, gseed = gseed)
-    colors = Generative.make_colors(communities, correlation)
-    colorsoh = Array{Float32}(Utils.onehotmaxbatch(colors))
 
-    g, convert(Array{Float32}, colorsoh), convert(Array{Float32}, scale_center(colorsoh))
+    features = if args["featuretype"] == "colors"
+        colors = Generative.make_colors(communities, correlation)
+        Array{Float32}(Utils.onehotmaxbatch(colors))
+    else
+        @assert args["featuretype"] == "sbm"
+        fsbm_l, fsbm_k, fsbm_p_in, fsbm_p_out, fsbm_seed = args["fsbm_l"], args["fsbm_k"], args["fsbm_p_in"], args["fsbm_p_out"], args["fsbm_seed"]
+        sbmfeatures, _ = Generative.make_sbmfeatures(fsbm_l, fsbm_k, fsbm_p_in, fsbm_p_out, correlation; gseed = fsbm_seed)
+        Array{Float32}(sbmfeatures)
+    end
+
+    g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features))
 end
 
 
