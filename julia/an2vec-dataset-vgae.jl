@@ -2,10 +2,12 @@ include("utils.jl")
 include("layers.jl")
 include("generative.jl")
 include("dataset.jl")
+include("vae.jl")
 using .Utils
 using .Layers
 using .Generative
 using .Dataset
+using .VAE
 
 using Flux
 using LightGraphs
@@ -54,7 +56,7 @@ function parse_cliargs()
             arg_type = Int
             default = 1000
         "--savehistory"
-            help = "file to save the training history (as Bson)"
+            help = "file to save the training history (as npz)"
             arg_type = String
             required = true
         "--saveweights"
@@ -117,9 +119,8 @@ function make_vae(;g, feature_size, args)
     # Decoder
     decadj = Layers.Bilin()
     decparams = Flux.params(decadj)
-    dec(ξ) = (decadj(ξ), nothing)
 
-    enc, sampleξ, dec, encparams, decparams
+    enc, sampleξ, decadj, encparams, decparams
 end
 
 
@@ -141,7 +142,7 @@ function make_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edg
 
     function perf(x)
         μ = enc(x)[1]
-        Alogitpred = dec(μ)[1].data
+        Alogitpred = dec(μ).data
         pred_true = Utils.threadedσ(Alogitpred[test_true_indices])
         pred_false = Utils.threadedσ(Alogitpred[test_false_indices])
         pred_all = vcat(pred_true, pred_false)
@@ -173,7 +174,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     # Total loss
     function losses(x)
         μ, logσ = enc(x)
-        logitApred, unormfeatpred = dec(sampleξ(μ, logσ))
+        logitApred = dec(sampleξ(μ, logσ))
         Dict("kl" => klscale * Lkl(μ, logσ) / κkl,
             "adj" => Ladj(logitApred) / κadj)
     end
@@ -183,39 +184,6 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     end
 
     losses, loss
-end
-
-
-"""Profile runs of a function"""
-function profile_fn(n::Int64, fn, args...)
-    for i = 1:n
-        fn(args...)
-    end
-end
-
-
-"""Train a VAE."""
-function train_vae!(;args, features, losses, loss, perf, paramsvae)
-    nepochs = args["nepochs"]
-
-    history = Dict(name => zeros(nepochs) for name in keys(losses(features)))
-    history["total loss"] = zeros(nepochs)
-    history["auc"] = zeros(nepochs)
-    history["ap"] = zeros(nepochs)
-
-    opt = ADAM(0.01)
-    @showprogress for i = 1:nepochs
-        Flux.train!(loss, paramsvae, [(features,)], opt)
-
-        lossparts = losses(features)
-        for (name, value) in lossparts
-            history[name][i] = value.data
-        end
-        history["total loss"][i] = sum(values(lossparts)).data
-        history["auc"][i], history["ap"][i] = perf(features)
-    end
-
-    history
 end
 
 
@@ -246,10 +214,10 @@ function main()
 
     if profilen != nothing
         println("Profiling loss runs...")
-        profile_fn(1, loss, features)  # Trigger compilation
+        Utils.repeat_fn(1, loss, features)  # Trigger compilation
         Profile.clear()
         Profile.init(n = 10000000)
-        @profile profile_fn(profilen, loss, features)
+        @profile Utils.repeat_fn(profilen, loss, features)
         li, lidict = Profile.retrieve()
         println("Saving profile results to \"$(profile_losses_filename)\"")
         JLD.@save profile_losses_filename li lidict
@@ -260,7 +228,7 @@ function main()
     println("Training...")
     paramsvae = Flux.Params()
     push!(paramsvae, paramsenc..., paramsdec...)
-    history = train_vae!(
+    history = VAE.train_vae!(
         args = args, features = features,
         losses = losses, loss = loss, perf = perf,
         paramsvae = paramsvae)
@@ -272,7 +240,7 @@ function main()
 
     # Save results
     println("Saving training history to \"$savehistory\"")
-    BSON.@save savehistory history
+    npzwrite(savehistory, Dict{String, Any}(history))
     if saveweights != nothing
         println("Saving final model weights and creation parameters to \"$saveweights\"")
         weights = Tracker.data.(paramsvae)
