@@ -87,7 +87,7 @@ function parse_cliargs()
 
     parsed = parse_args(ARGS, parse_settings)
     parsed["feature-distribution"] = VAE.feature_distributions[parsed["feature-distribution"]]
-    parsed["initb"] = if parsed["bias"]; zeros; else VAE.Layers.nobias; end
+    parsed["initb"] = parsed["bias"] ? zeros : VAE.Layers.nobias
     parsed
 end
 

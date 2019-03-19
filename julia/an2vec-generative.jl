@@ -118,7 +118,7 @@ function parse_cliargs()
 
     @assert 0 <= parsed["correlation"] <= 1
     parsed["diml1"] = Int64(round(sqrt(parsed["l"] * (parsed["dimxiadj"] + parsed["dimxifeat"]))))
-    parsed["initb"] = if parsed["bias"]; zeros; else VAE.Layers.nobias; end
+    parsed["initb"] = parsed["bias"] ? zeros : VAE.Layers.nobias
     parsed["feature-distribution"] = if parsed["featuretype" ] == "colors"
         VAE.Categorical
     else
