@@ -47,5 +47,18 @@ function make_colors(communities, correlation)
     colors
 end
 
+"""Generate features of a given rank clustered at a given correlation level around their community centers"""
+function make_clusteredhyperplane(el::Type, shape::Tuple, rank::Int, communities::AbstractArray{T, 1}, correlation::Float64) where T
+    plane = randn(shape[1], rank) * randn(rank, shape[2])
+    out = zeros(el, shape)
+    for i = 1:shape[2]
+        community = findall(communities .== communities[i])
+        m = mean(plane[:, community], dims = 2)
+        out[:, i] = (1 - correlation) .* plane[:, i] .+ correlation .* m
+    end
+    out
+end
+make_clusteredhyperplane(shape, rank, communities, correlation) = make_clusteredhyperplane(Float64, shape, rank, communities, correlation)
+
 
 end
