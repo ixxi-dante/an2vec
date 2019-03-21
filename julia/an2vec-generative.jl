@@ -5,6 +5,7 @@ using .Utils
 using .Generative
 using .VAE
 
+using LinearAlgebra
 using Flux
 import BSON
 using ArgParse
@@ -43,7 +44,7 @@ function parse_cliargs()
             arg_type = Float64
             required = true
         "--featuretype"
-            help = "generative model for the features; either \"colors\" or \"sbm\""
+            help = "generative model for the features; one of \"colors\", \"sbm\", \"lowrank\""
             arg_type = String
             required = true
         "--fsbm_l"
@@ -62,6 +63,12 @@ function parse_cliargs()
             help = "sbmfeatures graph seed"
             arg_type = Int
             default = -1
+        "--flowrank_dim"
+            help = "Dimension for low rank clustered hyperplane features"
+            arg_type = Int
+        "--flowrank_rank"
+            help = "Rank for low rank clustered hyperplane features"
+            arg_type = Int
         "--gseed"
             help = "seed for generation of the graph"
             arg_type = Int
@@ -121,10 +128,14 @@ function parse_cliargs()
     parsed["initb"] = parsed["bias"] ? (s) -> zeros(Float32, s) : VAE.Layers.nobias
     parsed["feature-distribution"] = if parsed["featuretype" ] == "colors"
         VAE.Categorical
-    else
-        @assert parsed["featuretype"] == "sbm"
+    elseif parsed["featuretype" ] == "sbm"
         @assert all((k) -> parsed[k] != nothing, ["fsbm_l", "fsbm_k", "fsbm_p_in", "fsbm_p_out"])
         VAE.Bernoulli
+    else
+        @assert parsed["featuretype"] == "lowrank"
+        @assert parsed["flowrank_rank"] != nothing
+        @assert parsed["flowrank_dim"] != nothing
+        VAE.Normal
     end
     parsed
 end
@@ -139,11 +150,16 @@ function dataset(args)
     features = if args["featuretype"] == "colors"
         colors = Generative.make_colors(communities, correlation)
         Array{Float32}(Utils.onehotmaxbatch(colors))
-    else
-        @assert args["featuretype"] == "sbm"
+    elseif args["featuretype"] == "sbm"
         fsbm_l, fsbm_k, fsbm_p_in, fsbm_p_out, fsbm_seed = args["fsbm_l"], args["fsbm_k"], args["fsbm_p_in"], args["fsbm_p_out"], args["fsbm_seed"]
         sbmfeatures, _ = Generative.make_sbmfeatures(fsbm_l, fsbm_k, fsbm_p_in, fsbm_p_out, correlation; gseed = fsbm_seed)
         Array{Float32}(sbmfeatures)
+    else
+        @assert args["featuretype"] == "lowrank"
+        flowrank_dim, flowrank_rank = args["flowrank_dim"], args["flowrank_rank"]
+        plane = Generative.make_clusteredhyperplane(Float32, (flowrank_dim, l * k), flowrank_rank, communities, correlation)
+        @assert rank(plane) == flowrank_rank
+        plane
     end
 
     g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features))
