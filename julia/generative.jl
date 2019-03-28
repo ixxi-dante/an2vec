@@ -7,6 +7,7 @@ using .Utils
 using LightGraphs
 using StatsBase
 using Random
+using Distributions
 
 
 """Generate an SBM graph, returning it and its communities as a vector"""
@@ -49,14 +50,30 @@ end
 
 """Generate features of a given rank clustered at a given correlation level around their community centers"""
 function make_clusteredhyperplane(el::Type, shape::Tuple, rank::Int, communities::AbstractArray{T, 1}, correlation::Float64) where T
-    plane = randn(shape[1], rank) * randn(rank, shape[2])
-    out = zeros(el, shape)
-    for i = 1:shape[2]
-        community = findall(communities .== communities[i])
-        m = mean(plane[:, community], dims = 2)
-        out[:, i] = (1 - correlation) .* plane[:, i] .+ correlation .* m
+    # Initial checks
+    ncommunities = length(unique(communities))
+    nnodes = length(communities)
+    @assert nnodes == shape[2]
+    @assert rank <= shape[1]
+
+    # Generate features
+    centroids = rand(Uniform(0, 1), rank, ncommunities)
+    # Noise level depends on how many points in how many dimensions
+    noise = Normal(0, 1 / (1.5 * nnodes^(1/rank)))
+    points = zeros(el, rank, nnodes)
+
+    for cid in unique(communities)
+        community = findall(communities .== cid)
+        points[:, community] = centroids[:, cid] .+ rand(noise, rank, length(community))
     end
-    out
+
+    features = randn(shape[1], rank) * points
+
+    # Decorrelate as asked
+    nshuffle = Int(round((1 - correlation) * nnodes))
+    idx = sample(1:nnodes, nshuffle, replace = false)
+    features[:, idx] = features[:, shuffle(idx)]
+    features
 end
 make_clusteredhyperplane(shape, rank, communities, correlation) = make_clusteredhyperplane(Float64, shape, rank, communities, correlation)
 
