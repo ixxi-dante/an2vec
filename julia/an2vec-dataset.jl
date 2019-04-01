@@ -13,6 +13,7 @@ using Profile
 import JLD
 using NPZ
 using PyCall
+using Random
 
 
 # Parameters
@@ -31,6 +32,9 @@ function parse_cliargs()
             arg_type = Float64
             # default = 0.15
             required = true
+        "--seed"
+            help = "Random seed for dataset blurring"
+            arg_type = Int
         "--feature-distribution"
             help = "which distribution do the features follow; must be one of " * join(keys(VAE.feature_distributions), ", ")
             arg_type = String
@@ -77,6 +81,9 @@ function parse_cliargs()
             required = true
         "--saveweights"
             help = "file to save the final model weights and creation parameters (as Bson)"
+            arg_type = String
+        "--savedataset"
+            help = "file to save the training dataset (as Bson)"
             arg_type = String
         "--profile"
             help = """
@@ -152,11 +159,16 @@ end
 
 function main()
     args = parse_cliargs()
-    savehistory, saveweights, profilen = args["savehistory"], args["saveweights"], args["profile"]
+    savehistory, saveweights, savedataset, profilen = args["savehistory"], args["saveweights"], args["savedataset"], args["profile"]
     if profilen != nothing
         println("Profiling $profilen loss runs. Ignoring any \"save*\" arguments.")
     else
         saveweights == nothing && println("Warning: will not save model weights after training")
+    end
+    seed = args["seed"]
+    if seed != nothing
+        println("Setting random seed to $seed")
+        Random.seed!(seed)
     end
 
     println("Loading the dataset")
@@ -188,9 +200,25 @@ function main()
         return
     end
 
-    println("Training...")
+    if savedataset != nothing
+        println("Saving training dataset to \"$savedataset\"")
+        BSON.@save savedataset gtrain test_true_edges test_false_edges
+    else
+        println("Not saving training dataset")
+    end
+
     paramsvae = Flux.Params()
     push!(paramsvae, paramsenc..., paramsdec...)
+    if saveweights != nothing
+        saveweights0 = saveweights * "-0"
+        println("Saving initial model weights and creation parameters to \"$saveweights0\"")
+        weights = Tracker.data.(paramsvae)
+        BSON.@save saveweights0 weights args
+    else
+        println("Not saving initial model weights or creation parameters")
+    end
+
+    println("Training...")
     history = VAE.train_vae!(
         args = args, features = features,
         losses = losses, loss = loss, perf = perf,
