@@ -63,7 +63,7 @@ function unsharedl1_enc(;g, feature_size, args)
     enc, encparams
 end
 
-function make_vae(;g, feature_size, args)
+function make_vae(;g, feature_size, args, weights = nothing)
     diml1, dimξadj, dimξfeat, overlap = args["diml1"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
     initb = args["initb"]
 
@@ -101,6 +101,14 @@ function make_vae(;g, feature_size, args)
         decfeat, Flux.params(decadj, decfeat)
     end
     dec(ξ) = (decadj(ξ[1:dimξadj, :]), decfeat(ξ[end-dimξfeat+1:end, :]))
+
+    # Load parameters if given
+    if weights != nothing
+        println!("Info: loading given model weights")
+        paramsvae = Flux.Params()
+        push!(paramsvae, paramsenc..., paramsdec...)
+        loadparams!(paramsvae, weights)
+    end
 
     enc, sampleξ, dec, encparams, decparams
 end
@@ -158,15 +166,19 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
 end
 
 
-function train_vae!(;args, features, paramsvae, losses, loss, perf = nothing)
+function train_vae!(;args, features, paramsvae, losses, loss, perf_edges = nothing, perf_nodes = nothing)
     nepochs = args["nepochs"]
     elt = eltype(features)
 
     history = Dict(name => zeros(elt, nepochs) for name in keys(losses(features)))
     history["total loss"] = zeros(elt, nepochs)
-    if perf != nothing
+    if perf_edges != nothing
         history["auc"] = zeros(elt, nepochs)
         history["ap"] = zeros(elt, nepochs)
+    end
+    if perf_nodes != nothing
+        history["f1macro"] = zeros(elt, nepochs)
+        history["f1micro"] = zeros(elt, nepochs)
     end
 
     opt = ADAM(0.01)
@@ -178,9 +190,13 @@ function train_vae!(;args, features, paramsvae, losses, loss, perf = nothing)
             history[name][i] = value.data
         end
         history["total loss"][i] = sum(values(lossparts)).data
-        if perf != nothing
-            history["auc"][i], history["ap"][i] = perf(features)
+        if perf_edges != nothing
+            history["auc"][i], history["ap"][i] = perf_edges(features)
         end
+    end
+    # Only save the latest node classification performance, as this is costly
+    if perf_nodes != nothing
+        history["f1macro"][end], history["f1micro"][end] = perf_nodes(features)
     end
 
     history

@@ -12,8 +12,10 @@ using ArgParse
 using Profile
 import JLD
 using NPZ
-using PyCall
+using ScikitLearn
 using Random
+@sk_import metrics: (roc_auc_score, average_precision_score, f1_score)
+@sk_import linear_model: LogisticRegression
 
 
 # Parameters
@@ -27,13 +29,17 @@ function parse_cliargs()
             help = "path to a npz file containing adjacency and features of a dataset"
             arg_type = String
             required = true
-        "--blurring"
-            help = "percentage of edges to add/remove to training dataset for reconstruction testing"
+        "--testprop"
+            help = "percentage of edges/nodes to add (or add and remove, for edges) to training dataset for reconstruction/classification testing"
             arg_type = Float64
             # default = 0.15
             required = true
+        "--testtype"
+            help = "test type; must be either \"nodes\" for classification, or \"edges\" for link prediction"
+            arg_type = String
+            required = true
         "--seed"
-            help = "Random seed for dataset blurring"
+            help = "Random seed for test set generation"
             arg_type = Int
         "--feature-distribution"
             help = "which distribution do the features follow; must be one of " * join(keys(VAE.feature_distributions), ", ")
@@ -93,6 +99,7 @@ function parse_cliargs()
     end
 
     parsed = parse_args(ARGS, parse_settings)
+    @assert parsed["testtype"] in ["nodes", "edges"]
     parsed["feature-distribution"] = VAE.feature_distributions[parsed["feature-distribution"]]
     parsed["initb"] = parsed["bias"] ? (s) -> zeros(Float32, s) : VAE.Layers.nobias
     parsed
@@ -101,16 +108,17 @@ end
 
 """Load the adjacency matrix and features."""
 function dataset(args)
-    adjfeatures = npzread(args["dataset"])
+    data = npzread(args["dataset"])
 
-    features = transpose(adjfeatures["features"])
+    features = transpose(data["features"])
+    classes = transpose(data["labels"])
 
     # Make sure we have a non-weighted graph
-    @assert Set(adjfeatures["adjdata"]) == Set([1])
+    @assert Set(data["adjdata"]) == Set([1])
 
     # Remove any diagonal elements in the matrix
-    rows = adjfeatures["adjrow"]
-    cols = adjfeatures["adjcol"]
+    rows = data["adjrow"]
+    cols = data["adjcol"]
     nondiagindices = findall(rows .!= cols)
     rows = rows[nondiagindices]
     cols = cols[nondiagindices]
@@ -123,12 +131,12 @@ function dataset(args)
 
     # Check sizes for sanity
     @assert size(g, 1) == size(g, 2) == size(features, 2)
-    g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features))
+    g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features)), classes
 end
 
 
-"""Define the function compting AUC and AP scores for model predictions (adjacency only)"""
-function make_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edges, test_false_edges)
+"""Define the function computing AUC and AP scores for link reconstruction"""
+function make_edges_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edges, test_false_edges)
     # Convert test edge arrays to indices
     test_true_indices = CartesianIndex.(test_true_edges[:, 1], test_true_edges[:, 2])
     test_false_indices = CartesianIndex.(test_false_edges[:, 1], test_false_edges[:, 2])
@@ -141,8 +149,6 @@ function make_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edg
     @assert real_false == zeros(length(test_false_indices))
     real_all = vcat(real_true, real_false)
 
-    metrics = pyimport("sklearn.metrics")
-
     function perf(x)
         μ = enc(x)[1]
         Alogitpred = dec(μ)[1].data
@@ -150,10 +156,43 @@ function make_perf_scorer(;enc, sampleξ, dec, greal::SimpleGraph, test_true_edg
         pred_false = Utils.threadedσ(Alogitpred[test_false_indices])
         pred_all = vcat(pred_true, pred_false)
 
-        metrics[:roc_auc_score](real_all, pred_all), metrics[:average_precision_score](real_all, pred_all)
+        roc_auc_score(real_all, pred_all), average_precision_score(real_all, pred_all)
     end
 
     perf
+end
+
+
+"""Define the function computing Macro and Micro F1 scores for node classification"""
+function make_nodes_perf_scorer(;enc, greal, feature_size, args, trainparams, features, classes, test_nodes, train_nodes)
+    # Create the model with full adjacency for testing
+    println("Info: making nodes perf scoring model")
+    testenc, _, _, testparamsenc, testparamsdec = VAE.make_vae(g = greal, feature_size = feature_size, args = args)
+    testparams = Flux.Params()
+    push!(testparams, testparamsenc..., testparamsdec...)
+
+    # Create numerical encodings of the classes
+    classesnum = dropdims(map(p -> p[1], findmax(classes, dims = 1)[2]), dims = 1)
+    @assert size(classesnum) == (size(classes, 2),)
+
+    function perf(x)
+        # Get embeddings for train nodes
+        μtrain = copy(transpose(enc(x)[1].data))
+
+        # Train a logistic regression on μtrain/classestrain
+        reg = LogisticRegression(multi_class = :ovr, solver = :liblinear)
+        fit!(reg, μtrain, classesnum[train_nodes])
+
+        # Get embeddings for test nodes
+        loadparams!(testparams, trainparams)
+        μtest = copy(transpose(testenc(features)[1][:, test_nodes].data))
+
+        # Get LogisticRegression predictions for test nodes
+        testpred = predict(reg, μtest)
+
+        # Score predictions
+        f1_score(classesnum[test_nodes], testpred, average = :macro), f1_score(classesnum[test_nodes], testpred, average = :micro)
+    end
 end
 
 
@@ -172,27 +211,46 @@ function main()
     end
 
     println("Loading the dataset")
-    g, labels, features = dataset(args)
-    gtrain, test_true_edges, test_false_edges = Dataset.make_blurred_test_set(g, args["blurring"])
+    g, labels, features, classes = dataset(args)
     feature_size = size(features, 1)
+    if args["testtype"] == "edges"
+        gtrain, test_true_edges, test_false_edges = Dataset.make_edges_test_set(g, args["testprop"])
+    else
+        @assert args["testtype"] == "nodes"
+        gtrain, test_nodes, train_nodes = Dataset.make_nodes_test_set(g, args["testprop"])
+    end
 
     println("Making the model")
     enc, sampleξ, dec, paramsenc, paramsdec = VAE.make_vae(
         g = gtrain, feature_size = feature_size, args = args)
+    paramsvae = Flux.Params()
+    push!(paramsvae, paramsenc..., paramsdec...)
     losses, loss = VAE.make_losses(
-        g = gtrain, labels = labels, feature_size = feature_size, args = args,
+        g = gtrain, labels = labels[:, train_nodes], feature_size = feature_size, args = args,
         enc = enc, sampleξ = sampleξ, dec = dec,
         paramsenc = paramsenc, paramsdec = paramsdec)
-    perf = make_perf_scorer(
-        enc = enc, sampleξ = sampleξ, dec = dec,
-        greal = g, test_true_edges = test_true_edges, test_false_edges = test_false_edges)
+    perf_edges = if args["testtype"] == "edges"
+        make_edges_perf_scorer(
+            enc = enc, sampleξ = sampleξ, dec = dec,
+            greal = g, test_true_edges = test_true_edges, test_false_edges = test_false_edges)
+    else
+        nothing
+    end
+    perf_nodes = if args["testtype"] == "nodes"
+        make_nodes_perf_scorer(
+            enc = enc,
+            greal = g, feature_size = feature_size, args = args, trainparams = paramsvae,
+            features = features, classes = classes, test_nodes = test_nodes, train_nodes = train_nodes)
+    else
+        nothing
+    end
 
     if profilen != nothing
         println("Profiling loss runs...")
-        Utils.repeat_fn(1, loss, features)  # Trigger compilation
+        Utils.repeat_fn(1, loss, features[:, train_nodes])  # Trigger compilation
         Profile.clear()
         Profile.init(n = 10000000)
-        @profile Utils.repeat_fn(profilen, loss, features)
+        @profile Utils.repeat_fn(profilen, loss, features[:, train_nodes])
         li, lidict = Profile.retrieve()
         println("Saving profile results to \"$(profile_losses_filename)\"")
         JLD.@save profile_losses_filename li lidict
@@ -202,13 +260,20 @@ function main()
 
     if savedataset != nothing
         println("Saving training dataset to \"$savedataset\"")
-        BSON.@save savedataset gtrain test_true_edges test_false_edges
+        test_info = Dict()
+        if args["testtype"] == "edges"
+            test_info["test_true_edges"] = test_true_edges
+            test_info["test_false_edges"] = test_false_edges
+        end
+        if args["testtype"] == "nodes"
+            test_info["test_nodes"] = test_nodes
+            test_info["train_nodes"] = train_nodes
+        end
+        BSON.@save savedataset gtrain test_info
     else
         println("Not saving training dataset")
     end
 
-    paramsvae = Flux.Params()
-    push!(paramsvae, paramsenc..., paramsdec...)
     if saveweights != nothing
         saveweights0 = saveweights * "-0"
         println("Saving initial model weights and creation parameters to \"$saveweights0\"")
@@ -220,8 +285,8 @@ function main()
 
     println("Training...")
     history = VAE.train_vae!(
-        args = args, features = features,
-        losses = losses, loss = loss, perf = perf,
+        args = args, features = features[:, train_nodes],
+        losses = losses, loss = loss, perf_edges = perf_edges, perf_nodes = perf_nodes,
         paramsvae = paramsvae)
 
     println("Final losses and performance metrics:")

@@ -10,7 +10,7 @@ using StatsBase
 
 
 """Create a test graph from `g` with `p` percent of deleted edges, returning the new graph, the list of removed edges, and a list of as many negative edges (edges that are absent in `g`)"""
-function make_blurred_test_set(g::SimpleGraph, p)
+function make_edges_test_set(g::SimpleGraph, p)
     Atriu = sparse(UpperTriangular(adjacency_matrix(g)))
     A_size = size(Atriu, 1)
     is, js, _ = findnz(Atriu)
@@ -41,6 +41,22 @@ function make_blurred_test_set(g::SimpleGraph, p)
     end
 
     gtrain, test_true_edges, test_false_edges
+end
+
+
+"""Create a test graph from `g` with `p` percent of deleted nodes, returning the new graph, the list of removed (test) nodes, and the list of remaining (train) nodes"""
+function make_nodes_test_set(g::SimpleGraph, p)
+    nnodes = nv(g)
+    test_size = Int64(round(nnodes * p))
+    test_nodes = sample(1:nnodes, test_size, replace = false)
+    train_nodes = setdiff(1:nnodes, test_nodes)
+
+    gtrain = copy(g)
+    for i in sort(test_nodes, rev = true)
+        @assert rem_vertex!(gtrain, i)
+    end
+
+    gtrain, sort(test_nodes), train_nodes
 end
 
 
