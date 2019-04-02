@@ -215,6 +215,8 @@ function main()
     feature_size = size(features, 1)
     if args["testtype"] == "edges"
         gtrain, test_true_edges, test_false_edges = Dataset.make_edges_test_set(g, args["testprop"])
+        test_nodes = nothing
+        train_nodes = 1:nv(g)
     else
         @assert args["testtype"] == "nodes"
         gtrain, test_nodes, train_nodes = Dataset.make_nodes_test_set(g, args["testprop"])
