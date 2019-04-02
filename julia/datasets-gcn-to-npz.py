@@ -1,10 +1,17 @@
 import pickle
 
 import numpy as np
+import scipy.sparse as sp
 import networkx as nx
 
 
-DATASET_NAMES = ['cora', 'citeseer', 'pubmed']
+# (Dataset name, whether or not to clean it)
+DATASETS = [
+    ('cora', False),
+    ('citeseer', False),
+    ('citeseer', True),
+    ('pubmed', False)
+]
 DATASET_PARTS = ['x', 'tx', 'allx', 'y', 'ty', 'ally', 'graph']
 INPATH = "gcn/data"
 OUTPATH = 'datasets/gae-benchmarks'
@@ -17,7 +24,7 @@ def parse_index_file(filename):
     return index
 
 
-def load_files(name):
+def load_files(name, clean):
     # Load features
     parts = {}
     for part_name in DATASET_PARTS:
@@ -62,7 +69,29 @@ def load_files(name):
             parts['ty']
         parts['ty'] = ty_extended
 
-    return (adj.data, adj.row, adj.col), parts
+    # Assemble parts of the features and labels
+    features, labels = assemble_features_labels(parts)
+
+    if clean:
+        # Get indices of isolated nodes
+        adj = adj.toarray()
+        selfconnections = np.where(np.diag(adj))[0]
+        adj[selfconnections, selfconnections] = 0
+        isolated = np.where(adj.sum(1) == 0)[0]
+
+        # Get indices of nodes with 0 features or 0 labels
+        features0 = np.where(features.sum(1) == 0)[0]
+        labels0 = np.where(labels.sum(1) == 0)[0]
+
+        # Join indices and remove from the dataset
+        keep = sorted(set(range(adj.shape[0]))
+                      .difference(isolated, features0, labels0))
+        adj = adj[keep, :][:, keep]
+        features = features[keep, :]
+        labels = labels[keep, :]
+        adj = sp.coo_matrix(adj)
+
+    return (adj.data, adj.row, adj.col), features, labels
 
 
 def assemble_features_labels(parts):
@@ -79,11 +108,10 @@ def assemble_features_labels(parts):
 
 if __name__ == '__main__':
     print("Loading dataset parts and saving them as npz")
-    for name in DATASET_NAMES:
-        print('Loading {} dataset...'.format(name))
-        (adjdata, adjrow, adjcol), feature_parts = load_files(name)
-        features, labels = assemble_features_labels(feature_parts)
-        npzpath = OUTPATH + "/{}.npz".format(name)
+    for name, clean in DATASETS:
+        print('Loading {} dataset (cleaning = {})...'.format(name, clean))
+        (adjdata, adjrow, adjcol), features, labels = load_files(name, clean)
+        npzpath = OUTPATH + "/{}{}.npz".format(name, '-clean' if clean else '')
         print('Saving to "{}"...'.format(npzpath))
         np.savez_compressed(npzpath,
                             features=features, labels=labels,
