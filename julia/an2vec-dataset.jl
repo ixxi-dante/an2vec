@@ -14,6 +14,7 @@ import JLD
 using NPZ
 using ScikitLearn
 using Random
+using StatsBase
 @sk_import metrics: (roc_auc_score, average_precision_score, f1_score)
 @sk_import linear_model: LogisticRegression
 
@@ -29,6 +30,10 @@ function parse_cliargs()
             help = "path to a npz file containing adjacency and features of a dataset"
             arg_type = String
             required = true
+        "--forced-correlation"
+            help = "use manual structure-features decorrelation of the dataset; 0 corresponds to completely random, 1 to the unaltered dataset; defaults to 1"
+            arg_type = Float64
+            default = 1.0
         "--testprop"
             help = "percentage of edges/nodes to add (or add and remove, for edges) to training dataset for reconstruction/classification testing"
             arg_type = Float64
@@ -110,7 +115,7 @@ end
 function dataset(args)
     data = npzread(args["dataset"])
 
-    features = transpose(data["features"])
+    features = convert(Array{Float32}, transpose(data["features"]))
     classes = transpose(data["labels"])
 
     # Make sure we have a non-weighted graph
@@ -130,8 +135,18 @@ function dataset(args)
     g = SimpleGraphFromIterator(edges)
 
     # Check sizes for sanity
-    @assert size(g, 1) == size(g, 2) == size(features, 2)
-    g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features)), classes
+    @assert nv(g) == size(g, 1) == size(g, 2) == size(features, 2)
+
+    # Randomize to the level requested
+    nnodes = nv(g)
+    correlation = args["forced-correlation"]
+    nshuffle = Int(round((1 - correlation) * nnodes))
+    idx = StatsBase.sample(1:nnodes, nshuffle, replace = false)
+    shuffledidx = shuffle(idx)
+    features[:, idx] = features[:, shuffledidx]
+    classes[:, idx] = classes[:, shuffledidx]
+
+    g, features, scale_center(features), classes
 end
 
 
