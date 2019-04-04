@@ -196,14 +196,14 @@ function make_nodes_perf_scorer(;enc, greal, feature_size, args, trainparams, fe
 
         # Train a logistic regression on μtrain/classestrain
         reg = LogisticRegression(multi_class = :ovr, solver = :liblinear)
-        fit!(reg, μtrain, classesnum[train_nodes])
+        ScikitLearn.fit!(reg, μtrain, classesnum[train_nodes])
 
         # Get embeddings for test nodes
         loadparams!(testparams, trainparams)
         μtest = copy(transpose(testenc(features)[1][:, test_nodes].data))
 
         # Get LogisticRegression predictions for test nodes
-        testpred = predict(reg, μtest)
+        testpred = ScikitLearn.predict(reg, μtest)
 
         # Score predictions
         f1_score(classesnum[test_nodes], testpred, average = :macro), f1_score(classesnum[test_nodes], testpred, average = :micro)
