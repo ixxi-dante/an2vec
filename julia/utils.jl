@@ -1,7 +1,7 @@
 module Utils
 
 
-export mean, scale_center, adjacency_matrix_diag, randn_like, markersize, loadparams!
+export mean, normaliser, adjacency_matrix_diag, randn_like, markersize, loadparams!
 
 using Statistics, Flux, LinearAlgebra, LightGraphs, SparseArrays
 import Statistics.mean
@@ -34,12 +34,12 @@ rowinmatrix(r::AbstractVector, m::AbstractMatrix) = any(all(reshape(r, 1, :) .==
 # Neural network helpers
 #
 
-function scale_center(x; dims = 1)
-    x = x .- mean(x, dims = dims)
-    norm = sqrt.(sum(x .^ 2, dims = dims))
-    zeros = findall(norm .== 0)
-    norm[zeros] = ones(eltype(norm), size(zeros))
-    x ./ norm
+function normaliser(x; dims = 2)
+    xmean = mean(x, dims = dims)
+    xscale = std(x, dims = dims)
+    zeros = findall(xscale .== 0)
+    xscale[zeros] = ones(eltype(xscale), size(zeros))
+    y -> (y .- xmean) ./ xscale
 end
 
 #

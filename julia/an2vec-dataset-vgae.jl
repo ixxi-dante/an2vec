@@ -98,7 +98,7 @@ function dataset(args)
 
     # Check sizes for sanity
     @assert size(g, 1) == size(g, 2) == size(features, 2)
-    g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features))
+    g, convert(Array{Float32}, features)
 end
 
 
@@ -197,9 +197,11 @@ function main()
     end
 
     println("Loading the dataset")
-    g, labels, features = dataset(args)
-    gtrain, test_true_edges, test_false_edges = Dataset.make_blurred_test_set(g, args["blurring"])
+    g, _features = dataset(args)
     feature_size = size(features, 1)
+    # Note: this is input-variable normalisation, different from the vanilla VGAE wich uses case normalisation
+    features = normaliser(_features)(_features)
+    gtrain, test_true_edges, test_false_edges = Dataset.make_blurred_test_set(g, args["blurring"])
 
     println("Making the model")
     enc, sampleξ, dec, paramsenc, paramsdec = make_vae(

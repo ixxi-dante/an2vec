@@ -146,7 +146,7 @@ function dataset(args)
     features[:, idx] = features[:, shuffledidx]
     classes[:, idx] = classes[:, shuffledidx]
 
-    g, features, scale_center(features), classes
+    g, features, classes
 end
 
 
@@ -226,8 +226,9 @@ function main()
     end
 
     println("Loading the dataset")
-    g, labels, features, classes = dataset(args)
-    feature_size = size(features, 1)
+    g, _features, classes = dataset(args)
+    labels = _features
+    feature_size = size(_features, 1)
     if args["testtype"] == "edges"
         gtrain, test_true_edges, test_false_edges = Dataset.make_edges_test_set(g, args["testprop"])
         test_nodes = nothing
@@ -236,6 +237,10 @@ function main()
         @assert args["testtype"] == "nodes"
         gtrain, test_nodes, train_nodes = Dataset.make_nodes_test_set(g, args["testprop"])
     end
+    fnormalise = normaliser(_features[:, train_nodes])
+    features_train = fnormalise(_features[:, train_nodes])
+    features_all = fnormalise(_features)
+    labels_train = labels[:, train_nodes]
 
     println("Making the model")
     enc, sampleξ, dec, paramsenc, paramsdec = VAE.make_vae(
@@ -243,7 +248,7 @@ function main()
     paramsvae = Flux.Params()
     push!(paramsvae, paramsenc..., paramsdec...)
     losses, loss = VAE.make_losses(
-        g = gtrain, labels = labels[:, train_nodes], feature_size = feature_size, args = args,
+        g = gtrain, labels = labels_train, feature_size = feature_size, args = args,
         enc = enc, sampleξ = sampleξ, dec = dec,
         paramsenc = paramsenc, paramsdec = paramsdec)
     perf_edges = if args["testtype"] == "edges"
@@ -257,17 +262,18 @@ function main()
         make_nodes_perf_scorer(
             enc = enc,
             greal = g, feature_size = feature_size, args = args, trainparams = paramsvae,
-            features = features, classes = classes, test_nodes = test_nodes, train_nodes = train_nodes)
+            features = features_all, classes = classes,
+            test_nodes = test_nodes, train_nodes = train_nodes)
     else
         nothing
     end
 
     if profilen != nothing
         println("Profiling loss runs...")
-        Utils.repeat_fn(1, loss, features[:, train_nodes])  # Trigger compilation
+        Utils.repeat_fn(1, loss, features_train)  # Trigger compilation
         Profile.clear()
         Profile.init(n = 10000000)
-        @profile Utils.repeat_fn(profilen, loss, features[:, train_nodes])
+        @profile Utils.repeat_fn(profilen, loss, features_train)
         li, lidict = Profile.retrieve()
         println("Saving profile results to \"$(profile_losses_filename)\"")
         JLD.@save profile_losses_filename li lidict
@@ -302,7 +308,7 @@ function main()
 
     println("Training...")
     history = VAE.train_vae!(
-        args = args, features = features[:, train_nodes],
+        args = args, features = features_train,
         losses = losses, loss = loss, perf_edges = perf_edges, perf_nodes = perf_nodes,
         paramsvae = paramsvae)
 

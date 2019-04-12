@@ -159,10 +159,10 @@ function dataset(args)
         flowrank_dim, flowrank_rank = args["flowrank_dim"], args["flowrank_rank"]
         plane = Generative.make_clusteredhyperplane(Float32, (flowrank_dim, l * k), flowrank_rank, communities, correlation)
         @assert rank(plane) == flowrank_rank
-        plane
+        Array{Float32}(plane)
     end
 
-    g, convert(Array{Float32}, features), convert(Array{Float32}, scale_center(features))
+    g, features
 end
 
 
@@ -177,8 +177,10 @@ function main()
     end
 
     println("Making the dataset")
-    g, labels, features = dataset(args)
-    feature_size = size(features, 1)
+    g, _features = dataset(args)
+    labels = _features
+    feature_size = size(_features, 1)
+    features = normaliser(_features)(_features)
 
     println("Making the model")
     enc, sampleξ, dec, paramsenc, paramsdec = VAE.make_vae(
@@ -225,7 +227,7 @@ function main()
     end
     if savedataset != nothing
         println("Saving training dataset to \"$savedataset\"")
-        BSON.@save savedataset g labels features
+        BSON.@save savedataset g labels
     else
         println("Not saving training dataset")
     end
