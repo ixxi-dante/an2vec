@@ -49,7 +49,7 @@ function make_colors(communities, correlation)
 end
 
 """Generate features of a given rank clustered at a given correlation level around their community centers"""
-function make_clusteredhyperplane(el::Type, shape::Tuple, rank::Int, communities::AbstractArray{T, 1}, correlation::Float64) where T
+function make_clusteredhyperplane(el::Type, shape::Tuple, rank::Int, noisescale::Float64, communities::AbstractArray{T, 1}, correlation::Float64) where T
     # Initial checks
     ncommunities = length(unique(communities))
     nnodes = length(communities)
@@ -57,17 +57,17 @@ function make_clusteredhyperplane(el::Type, shape::Tuple, rank::Int, communities
     @assert rank <= shape[1]
 
     # Generate features
-    centroids = rand(Uniform(0, 1), rank, ncommunities)
+    centroids = convert(Array{el}, rand(Uniform(0, 1), rank, ncommunities))
     # Noise level depends on how many points in how many dimensions
-    noise = Normal(0, 1 / (1.5 * nnodes^(1/rank)))
+    noise = Normal(0, noisescale / (nnodes^(1/rank)))
     points = zeros(el, rank, nnodes)
 
     for cid in unique(communities)
         community = findall(communities .== cid)
-        points[:, community] = centroids[:, cid] .+ rand(noise, rank, length(community))
+        points[:, community] = centroids[:, cid] .+ convert(Array{el}, rand(noise, rank, length(community)))
     end
 
-    features = randn(shape[1], rank) * points
+    features = randn(el, shape[1], rank) * points
 
     # Decorrelate as asked
     nshuffle = Int(round((1 - correlation) * nnodes))

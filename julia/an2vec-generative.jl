@@ -69,6 +69,9 @@ function parse_cliargs()
         "--flowrank_rank"
             help = "Rank for low rank clustered hyperplane features"
             arg_type = Int
+        "--flowrank_noisescale"
+            help = "Scale of noise around each community centroid"
+            arg_type = Float64
         "--gseed"
             help = "seed for generation of the graph"
             arg_type = Int
@@ -135,6 +138,7 @@ function parse_cliargs()
         @assert parsed["featuretype"] == "lowrank"
         @assert parsed["flowrank_rank"] != nothing
         @assert parsed["flowrank_dim"] != nothing
+        @assert parsed["flowrank_noisescale"] != nothing
         VAE.Normal
     end
     parsed
@@ -156,8 +160,8 @@ function dataset(args)
         Array{Float32}(sbmfeatures)
     else
         @assert args["featuretype"] == "lowrank"
-        flowrank_dim, flowrank_rank = args["flowrank_dim"], args["flowrank_rank"]
-        plane = Generative.make_clusteredhyperplane(Float32, (flowrank_dim, l * k), flowrank_rank, communities, correlation)
+        flowrank_dim, flowrank_rank, flowrank_noisescale = args["flowrank_dim"], args["flowrank_rank"], args["flowrank_noisescale"]
+        plane = Generative.make_clusteredhyperplane(Float32, (flowrank_dim, l * k), flowrank_rank, flowrank_noisescale, communities, correlation)
         @assert rank(plane) == flowrank_rank
         Array{Float32}(plane)
     end
