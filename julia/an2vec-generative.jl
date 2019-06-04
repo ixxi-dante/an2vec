@@ -12,6 +12,7 @@ using ArgParse
 using Profile
 import JLD
 using NPZ
+using StatsBase
 
 
 # Parameters
@@ -72,6 +73,9 @@ function parse_cliargs()
         "--flowrank_noisescale"
             help = "Scale of noise around each community centroid"
             arg_type = Float64
+        "--flowrank_catdiag"
+            help = "Whether or not to concatenate a diagonal matrix to the features"
+            arg_type = Bool
         "--gseed"
             help = "seed for generation of the graph"
             arg_type = Int
@@ -127,20 +131,22 @@ function parse_cliargs()
     parsed = parse_args(ARGS, parse_settings)
 
     @assert 0 <= parsed["correlation"] <= 1
-    parsed["diml1"] = Int64(round(sqrt(parsed["l"] * (parsed["dimxiadj"] + parsed["dimxifeat"]))))
     parsed["initb"] = parsed["bias"] ? (s) -> zeros(Float32, s) : VAE.Layers.nobias
-    parsed["feature-distribution"] = if parsed["featuretype" ] == "colors"
-        VAE.Categorical
+    parsed["feature-distribution"], dimfeat = if parsed["featuretype" ] == "colors"
+        (VAE.Categorical, parsed["l"])
     elseif parsed["featuretype" ] == "sbm"
         @assert all((k) -> parsed[k] != nothing, ["fsbm_l", "fsbm_k", "fsbm_p_in", "fsbm_p_out"])
-        VAE.Bernoulli
+        @assert parsed["l"] * parsed["k"] == parsed["fsbm_l"] * parsed["fsbm_k"]
+        (VAE.Bernoulli, parsed["l"] * parsed["k"])
     else
         @assert parsed["featuretype"] == "lowrank"
         @assert parsed["flowrank_rank"] != nothing
         @assert parsed["flowrank_dim"] != nothing
         @assert parsed["flowrank_noisescale"] != nothing
-        VAE.Normal
+        @assert parsed["flowrank_catdiag"] != nothing
+        (VAE.Normal, parsed["flowrank_dim"] + (parsed["flowrank_catdiag"] ? parsed["l"] * parsed["k"] : 0))
     end
+    parsed["diml1"] = Int64(round(geomean([dimfeat, parsed["dimxiadj"] + parsed["dimxifeat"]])))
     parsed
 end
 
@@ -163,6 +169,9 @@ function dataset(args)
         flowrank_dim, flowrank_rank, flowrank_noisescale = args["flowrank_dim"], args["flowrank_rank"], args["flowrank_noisescale"]
         plane = Generative.make_clusteredhyperplane(Float32, (flowrank_dim, l * k), flowrank_rank, flowrank_noisescale, communities, correlation)
         @assert rank(plane) == flowrank_rank
+        if args["flowrank_catdiag"]
+            plane = vcat(plane, Diagonal(ones(l * k)))
+        end
         Array{Float32}(plane)
     end
 
