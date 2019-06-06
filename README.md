@@ -1,14 +1,19 @@
-Node-word-2vec [![Build Status](https://travis-ci.org/ixxi-dante/nw2vec.svg?branch=master)](https://travis-ci.org/ixxi-dante/nw2vec) [![Maintainability](https://api.codeclimate.com/v1/badges/7cff99357c3a27e48768/maintainability)](https://codeclimate.com/github/ixxi-dante/nw2vec/maintainability)
-==============
+Attributed Node to Vec [![Build Status](https://travis-ci.org/ixxi-dante/nw2vec.svg?branch=master)](https://travis-ci.org/ixxi-dante/nw2vec) [![Maintainability](https://api.codeclimate.com/v1/badges/7cff99357c3a27e48768/maintainability)](https://codeclimate.com/github/ixxi-dante/nw2vec/maintainability)
+======================
 
 Bring those two things together! Do cool context- and language-aware stuff! Okay, let's fill this a little more precisely now.
 
 Setup
 -----
 
-First, using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
+This project uses a mix of Python and Julia (with the julia part steadily growing).
 
-Next, activate the environment and run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
+For Julia: we're running 1.1, but you can get the [latest version](https://julialang.org/).
+Then you can `grep "using\|import" **/*.jl` to get the list of dependencies, and `Pkg.add()` them.
+
+For Python: using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
+
+Finally, activate the anaconda environment and run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
 
 ### GPU-enabled computations on `grunch`
 
@@ -17,13 +22,13 @@ If you plan on using the LIP `grunch` machine with GPUs, then:
 * use `conda env create -f environment.lock-grunchgpu.yml` instead of the above `conda` command,
 * run `source load-grunchgpu-modules` to load the required environment modules before running any TensorFlow programs and scripts.
 
-### Updating and managing the environment
+### Updating and managing the python environment
 
 `environment.lock.yml` contains the full list of packages and their versions to duplicate the environment we use in development.
 To upgrade packages in that environment, use `environment.yml` instead:
 it only includes the top-level required packages without versions, and conda will resolve to updated package versions.
 
-`environment.lock-grunchgpu.yml` is a copy of `environment.lock.yml` that uses a GPU-enabled version of TensorFlow 1.6, optimised for LIP's `grunch` machine; it will most probably only work on that machine.
+`environment.lock-gpu.yml` is a copy of `environment.lock.yml` that uses GPU-enabled TensorFlow.
 
 ### Managing large data files
 
@@ -82,6 +87,7 @@ Analyses
 
 You can have a look at the [wiki](https://github.com/ixxi-dante/nw2vec/wiki).
 The `projects/` folder contains all the notebooks and scripts for the repo's [projects](https://github.com/ixxi-dante/nw2vec/projects), and is probably the most interesting thing to look at.
+The `julia/` folder also has a growing number of explorations.
 The `data/` folder contains any data that may be produced by those analyses.
 
 For now, we don't use the Twitter data in the `datasets/` folder, so you can ignore the sections below this and jump directly to the wiki or the projects after having installed the environment.
