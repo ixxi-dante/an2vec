@@ -1,4 +1,4 @@
-Attributed Node to Vec [![Build Status](https://travis-ci.org/ixxi-dante/nw2vec.svg?branch=master)](https://travis-ci.org/ixxi-dante/nw2vec) [![Maintainability](https://api.codeclimate.com/v1/badges/7cff99357c3a27e48768/maintainability)](https://codeclimate.com/github/ixxi-dante/nw2vec/maintainability)
+Attributed Node to Vec [![Build Status](https://travis-ci.org/ixxi-dante/an2vec.svg?branch=master)](https://travis-ci.org/ixxi-dante/an2vec)
 ======================
 
 Bring those two things together! Do cool context- and language-aware stuff! Okay, let's fill this a little more precisely now.
