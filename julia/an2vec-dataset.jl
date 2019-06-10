@@ -46,12 +46,17 @@ function parse_cliargs()
         "--seed"
             help = "Random seed for test set generation"
             arg_type = Int
-        "--feature-distribution"
-            help = "which distribution do the features follow; must be one of " * join(keys(VAE.feature_distributions), ", ")
+        "--label-distribution"
+            help = "which distribution do the labels follow; must be one of " * join(keys(VAE.label_distributions), ", ")
             arg_type = String
             required = true
-        "--diml1"
-            help = "dimension of intermediary layers"
+        "--diml1enc"
+            help = "dimension of intermediary encoder layer"
+            arg_type = Int
+            # default = 10
+            required = true
+        "--diml1dec"
+            help = "dimension of intermediary decoder layer"
             arg_type = Int
             # default = 10
             required = true
@@ -105,7 +110,7 @@ function parse_cliargs()
 
     parsed = parse_args(ARGS, parse_settings)
     @assert parsed["testtype"] in ["nodes", "edges"]
-    parsed["feature-distribution"] = VAE.feature_distributions[parsed["feature-distribution"]]
+    parsed["label-distribution"] = VAE.label_distributions[parsed["label-distribution"]]
     parsed["initb"] = parsed["bias"] ? (s) -> zeros(Float32, s) : VAE.Layers.nobias
     parsed
 end
@@ -146,6 +151,7 @@ function dataset(args)
     features[:, idx] = features[:, shuffledidx]
     classes[:, idx] = classes[:, shuffledidx]
 
+    @assert eltype(features) == Float32
     g, features, classes
 end
 
@@ -179,10 +185,10 @@ end
 
 
 """Define the function computing Macro and Micro F1 scores for node classification"""
-function make_nodes_perf_scorer(;enc, greal, feature_size, args, trainparams, features, classes, test_nodes, train_nodes)
+function make_nodes_perf_scorer(;enc, greal, feature_size, label_size, args, trainparams, features, classes, test_nodes, train_nodes)
     # Create the model with full adjacency for testing
     println("Info: making nodes perf scoring model")
-    testenc, _, _, testparamsenc, testparamsdec = VAE.make_vae(g = greal, feature_size = feature_size, args = args)
+    testenc, _, _, testparamsenc, testparamsdec = VAE.make_vae(g = greal, feature_size = feature_size, label_size = label_size, args = args)
     testparams = Flux.Params()
     push!(testparams, testparamsenc..., testparamsdec...)
 
@@ -229,6 +235,7 @@ function main()
     g, _features, classes = dataset(args)
     labels = _features
     feature_size = size(_features, 1)
+    label_size = feature_size
     if args["testtype"] == "edges"
         gtrain, test_true_edges, test_false_edges = Dataset.make_edges_test_set(g, args["testprop"])
         test_nodes = nothing
@@ -244,11 +251,11 @@ function main()
 
     println("Making the model")
     enc, sampleξ, dec, paramsenc, paramsdec = VAE.make_vae(
-        g = gtrain, feature_size = feature_size, args = args)
+        g = gtrain, feature_size = feature_size, label_size = label_size, args = args)
     paramsvae = Flux.Params()
     push!(paramsvae, paramsenc..., paramsdec...)
     losses, loss = VAE.make_losses(
-        g = gtrain, labels = labels_train, feature_size = feature_size, args = args,
+        g = gtrain, labels = labels_train, label_size = label_size, args = args,
         enc = enc, sampleξ = sampleξ, dec = dec,
         paramsenc = paramsenc, paramsdec = paramsdec)
     perf_edges = if args["testtype"] == "edges"
@@ -261,7 +268,7 @@ function main()
     perf_nodes = if args["testtype"] == "nodes"
         make_nodes_perf_scorer(
             enc = enc,
-            greal = g, feature_size = feature_size, args = args, trainparams = paramsvae,
+            greal = g, feature_size = feature_size, label_size = label_size, args = args, trainparams = paramsvae,
             features = features_all, classes = classes,
             test_nodes = test_nodes, train_nodes = train_nodes)
     else

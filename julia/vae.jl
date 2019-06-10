@@ -13,23 +13,23 @@ using Distributions
 
 const klscale = 1f-3
 const regscale = 1f-3
-const supported_feature_distributions = [Bernoulli, Categorical, Normal]
-const feature_distributions = Dict(lowercase(split(repr(d), ".")[end]) => d for d in supported_feature_distributions)
+const supported_label_distributions = [Bernoulli, Categorical, Normal]
+const label_distributions = Dict(lowercase(split(repr(d), ".")[end]) => d for d in supported_label_distributions)
 
 
 function sharedl1_enc(;g, feature_size, args)
     println("Info: using shared l1 encoder")
 
-    diml1, dimξadj, dimξfeat, overlap = args["diml1"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
+    diml1enc, dimξadj, dimξfeat, overlap = args["diml1enc"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
     initb = args["initb"]
 
-    l1 = Layers.GC(g, feature_size, diml1, Flux.relu, initb = initb)
+    l1 = Layers.GC(g, feature_size, diml1enc, Flux.relu, initb = initb)
     lμ = Layers.Apply(Layers.VOverlap(overlap),
-        Layers.GC(g, diml1, dimξadj, initb = initb),
-        Layers.GC(g, diml1, dimξfeat, initb = initb))
+        Layers.GC(g, diml1enc, dimξadj, initb = initb),
+        Layers.GC(g, diml1enc, dimξfeat, initb = initb))
     llogσ = Layers.Apply(Layers.VOverlap(overlap),
-        Layers.GC(g, diml1, dimξadj, initb = initb),
-        Layers.GC(g, diml1, dimξfeat, initb = initb))
+        Layers.GC(g, diml1enc, dimξadj, initb = initb),
+        Layers.GC(g, diml1enc, dimξfeat, initb = initb))
     enc(x) = (h = l1(x); (lμ(h), llogσ(h)))
     encparams = Flux.params(l1, lμ, llogσ)
 
@@ -39,17 +39,17 @@ end
 function unsharedl1_enc(;g, feature_size, args)
     println("Info: using unshared l1 encoder")
 
-    diml1, dimξadj, dimξfeat, overlap = args["diml1"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
+    diml1enc, dimξadj, dimξfeat, overlap = args["diml1enc"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
     initb = args["initb"]
 
-    l1adj = Layers.GC(g, feature_size, diml1, Flux.relu, initb = initb)
-    l1feat = Layers.GC(g, feature_size, diml1, Flux.relu, initb = initb)
+    l1adj = Layers.GC(g, feature_size, diml1enc, Flux.relu, initb = initb)
+    l1feat = Layers.GC(g, feature_size, diml1enc, Flux.relu, initb = initb)
 
-    lμadj = Layers.GC(g, diml1, dimξadj, initb = initb)
-    lμfeat = Layers.GC(g, diml1, dimξfeat, initb = initb)
+    lμadj = Layers.GC(g, diml1enc, dimξadj, initb = initb)
+    lμfeat = Layers.GC(g, diml1enc, dimξfeat, initb = initb)
 
-    llogσadj = Layers.GC(g, diml1, dimξadj, initb = initb)
-    llogσfeat = Layers.GC(g, diml1, dimξfeat, initb = initb)
+    llogσadj = Layers.GC(g, diml1enc, dimξadj, initb = initb)
+    llogσfeat = Layers.GC(g, diml1enc, dimξfeat, initb = initb)
 
     loverlap = Layers.VOverlap(overlap)
 
@@ -63,8 +63,8 @@ function unsharedl1_enc(;g, feature_size, args)
     enc, encparams
 end
 
-function make_vae(;g, feature_size, args, weights = nothing)
-    diml1, dimξadj, dimξfeat, overlap = args["diml1"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
+function make_vae(;g, feature_size, label_size, args, weights = nothing)
+    diml1dec, dimξadj, dimξfeat, overlap = args["diml1dec"], args["dimxiadj"], args["dimxifeat"], args["overlap"]
     initb = args["initb"]
 
     # Encoder
@@ -78,25 +78,25 @@ function make_vae(;g, feature_size, args, weights = nothing)
     decadj = if args["decadjdeep"]
         println("Info: using deep adjacency decoder")
         Chain(
-            Dense(dimξadj, diml1, Flux.relu, initb = initb),
-            Layers.Bilin(diml1)
+            Dense(dimξadj, diml1dec, Flux.relu, initb = initb),
+            Layers.Bilin(diml1dec)
         )
     else
         println("Info: using shallow adjacency decoder")
         Layers.Bilin()
     end
-    decfeat, decparams = if args["feature-distribution"] == Normal
+    decfeat, decparams = if args["label-distribution"] == Normal
         println("Info: using gaussian feature decoder")
-        decfeatl1 = Dense(dimξfeat, diml1, Flux.relu, initb = initb)
-        decfeatlμ = Dense(diml1, feature_size, initb = initb)
-        decfeatllogσ = Dense(diml1, feature_size, initb = initb)
+        decfeatl1 = Dense(dimξfeat, diml1dec, Flux.relu, initb = initb)
+        decfeatlμ = Dense(diml1dec, label_size, initb = initb)
+        decfeatllogσ = Dense(diml1dec, label_size, initb = initb)
         decfeat(ξ) = (h = decfeatl1(ξ); (decfeatlμ(h), decfeatllogσ(h)))
         decfeat, Flux.params(decadj, decfeatl1, decfeatlμ, decfeatllogσ)
     else
         println("Info: using boolean feature decoder")
         decfeat = Chain(
-            Dense(dimξfeat, diml1, Flux.relu, initb = initb),
-            Dense(diml1, feature_size, initb = initb),
+            Dense(dimξfeat, diml1dec, Flux.relu, initb = initb),
+            Dense(diml1dec, label_size, initb = initb),
         )
         decfeat, Flux.params(decadj, decfeat)
     end
@@ -114,8 +114,8 @@ function make_vae(;g, feature_size, args, weights = nothing)
 end
 
 
-function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramsenc, paramsdec)
-    feature_distribution = args["feature-distribution"]
+function make_losses(;g, labels, label_size, args, enc, sampleξ, dec, paramsenc, paramsdec)
+    label_distribution = args["label-distribution"]
     dimξadj, dimξfeat, overlap = args["dimxiadj"], args["dimxifeat"], args["overlap"]
     Adiag = Array{Float32}(adjacency_matrix_diag(g))
     densityA = Float32(mean(adjacency_matrix(g)))
@@ -141,7 +141,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
     κfeat(::Type{Bernoulli}) = κfeat_bernoulli
 
     Lfeat(unormFpred, ::Type{Categorical}) = sum(Utils.threadedsoftmaxcategoricallogprobloss(unormFpred, labels))
-    κfeat_categorical = Float32(size(g, 1) * log(feature_size))
+    κfeat_categorical = Float32(size(g, 1) * log(label_size))
     κfeat(::Type{Categorical}) = κfeat_categorical
 
     Lfeat(Fpreds, ::Type{Normal}) = ((μ, logσ) = Fpreds; sum(Utils.threadednormallogprobloss(μ, logσ, labels)))
@@ -154,7 +154,7 @@ function make_losses(;g, labels, feature_size, args, enc, sampleξ, dec, paramse
         logitApred, unormFpred = dec(sampleξ(μ, logσ))
         Dict("kl" => klscale * Lkl(μ, logσ) / κkl,
             "adj" => Ladj(logitApred) / κadj,
-            "feat" => Lfeat(unormFpred, feature_distribution) / κfeat(feature_distribution),
+            "feat" => Lfeat(unormFpred, label_distribution) / κfeat(label_distribution),
             "reg" => regscale * Utils.regularizer(paramsdec))
     end
 
