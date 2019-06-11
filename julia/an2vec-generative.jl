@@ -174,7 +174,7 @@ function dataset(args)
         @assert rank(features) == flowrank_rank
         labels = features
         if args["flowrank_catdiag"]
-            features = vcat(features, Diagonal(ones(Float32, l * k)))
+            features = vcat(features, Array(Diagonal(ones(Float32, l * k))))
         end
         features, labels
     end
