@@ -147,7 +147,7 @@ function parse_cliargs()
         (VAE.Normal, parsed["flowrank_dim"] + (parsed["flowrank_catdiag"] ? parsed["l"] * parsed["k"] : 0), parsed["flowrank_dim"] )
     end
     parsed["diml1enc"] = Int64(round(geomean([dimfeat, parsed["dimxiadj"] + parsed["dimxifeat"]])))
-    parsed["diml1dec"] = Int64(round(geomean([dimlabels, parsed["dimxiadj"] + parsed["dimxifeat"]])))
+    parsed["diml1dec"] = parsed["diml1enc"]
     parsed
 end
 
