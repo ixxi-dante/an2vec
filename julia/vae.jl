@@ -114,7 +114,7 @@ function make_vae(;g, feature_size, label_size, args, weights = nothing)
 end
 
 
-function make_losses(;g, labels, label_size, args, enc, sampleξ, dec, paramsenc, paramsdec)
+function make_losses(;g, labels, args, enc, sampleξ, dec, paramsenc, paramsdec)
     label_distribution = args["label-distribution"]
     dimξadj, dimξfeat, overlap = args["dimxiadj"], args["dimxifeat"], args["overlap"]
     Adiag = Array{Float32}(adjacency_matrix_diag(g))
@@ -141,7 +141,7 @@ function make_losses(;g, labels, label_size, args, enc, sampleξ, dec, paramsenc
     κfeat(::Type{Bernoulli}) = κfeat_bernoulli
 
     Lfeat(unormFpred, ::Type{Categorical}) = sum(Utils.threadedsoftmaxcategoricallogprobloss(unormFpred, labels))
-    κfeat_categorical = Float32(size(g, 1) * log(label_size))
+    κfeat_categorical = Float32(size(g, 1) * log(size(labels, 1)))
     κfeat(::Type{Categorical}) = κfeat_categorical
 
     Lfeat(Fpreds, ::Type{Normal}) = ((μ, logσ) = Fpreds; sum(Utils.threadednormallogprobloss(μ, logσ, labels)))

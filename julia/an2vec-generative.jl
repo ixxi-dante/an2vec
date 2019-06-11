@@ -205,7 +205,7 @@ function main()
     enc, sampleξ, dec, paramsenc, paramsdec = VAE.make_vae(
         g = g, feature_size = feature_size, label_size = label_size, args = args)
     losses, loss = VAE.make_losses(
-        g = g, labels = labels, label_size = label_size, args = args,
+        g = g, labels = labels, args = args,
         enc = enc, sampleξ = sampleξ, dec = dec,
         paramsenc = paramsenc, paramsdec = paramsdec)
 

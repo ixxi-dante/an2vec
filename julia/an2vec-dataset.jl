@@ -255,7 +255,7 @@ function main()
     paramsvae = Flux.Params()
     push!(paramsvae, paramsenc..., paramsdec...)
     losses, loss = VAE.make_losses(
-        g = gtrain, labels = labels_train, label_size = label_size, args = args,
+        g = gtrain, labels = labels_train, args = args,
         enc = enc, sampleξ = sampleξ, dec = dec,
         paramsenc = paramsenc, paramsdec = paramsdec)
     perf_edges = if args["testtype"] == "edges"
