@@ -15,12 +15,9 @@ For Python: using Anaconda, set up the environment with `conda env create -f env
 
 Finally, activate the anaconda environment and run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
 
-### GPU-enabled computations on `grunch`
+### GPU-enabled computations
 
-If you plan on using the LIP `grunch` machine with GPUs, then:
-
-* use `conda env create -f environment.lock-grunchgpu.yml` instead of the above `conda` command,
-* run `source load-grunchgpu-modules` to load the required environment modules before running any TensorFlow programs and scripts.
+If you plan on using the LIP `grunch` machine with GPUs, then use `conda env create -f environment.lock-gpu.yml` instead of the above `conda` command,
 
 ### Updating and managing the python environment
 
