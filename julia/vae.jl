@@ -104,7 +104,7 @@ function make_vae(;g, feature_size, label_size, args, weights = nothing)
 
     # Load parameters if given
     if weights != nothing
-        println!("Info: loading given model weights")
+        println("Info: loading given model weights")
         paramsvae = Flux.Params()
         push!(paramsvae, paramsenc..., paramsdec...)
         loadparams!(paramsvae, weights)
