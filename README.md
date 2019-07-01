@@ -9,7 +9,7 @@ Setup
 This project uses a mix of Python and Julia (with the julia part steadily growing).
 
 For Julia: we're running 1.1, but you can get the [latest version](https://julialang.org/).
-Then you can `grep "using\|import" **/*.jl` to get the list of dependencies, and `Pkg.add()` them.
+To install the required dependencies, run `julia environment.jl`.
 
 For Python: using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 
