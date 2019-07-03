@@ -74,8 +74,10 @@ function parse_cliargs()
             help = "Scale of noise around each community centroid"
             arg_type = Float64
         "--flowrank_catdiag"
-            help = "Whether or not to concatenate a diagonal matrix to the features"
-            arg_type = Bool
+            help = """
+                concatenate I_N to features and possibly labels too;
+                if provided, must be either "input" for catdiag on encoder input and not on decoder output, or "both" for input and output"""
+            arg_type = String
         "--gseed"
             help = "seed for generation of the graph"
             arg_type = Int
@@ -143,11 +145,21 @@ function parse_cliargs()
         @assert parsed["flowrank_rank"] != nothing
         @assert parsed["flowrank_dim"] != nothing
         @assert parsed["flowrank_noisescale"] != nothing
-        @assert parsed["flowrank_catdiag"] != nothing
-        (VAE.Normal, parsed["flowrank_dim"] + (parsed["flowrank_catdiag"] ? parsed["l"] * parsed["k"] : 0), parsed["flowrank_dim"] )
+        if parsed["flowrank_catdiag"] == nothing
+            _dimfeat = parsed["flowrank_dim"]
+            _dimlabels = _dimfeat
+        elseif parsed["flowrank_catdiag"] == "input"
+            _dimfeat = parsed["flowrank_dim"] + parsed["l"] * parsed["k"]
+            _dimlabels = parsed["flowrank_dim"]
+        else
+            @assert parsed["flowrank_catdiag"] == "both"
+            _dimfeat = parsed["flowrank_dim"] + parsed["l"] * parsed["k"]
+            _dimlabels = _dimfeat
+        end
+        (VAE.Normal, _dimfeat, _dimlabels)
     end
     parsed["diml1enc"] = Int64(round(geomean([dimfeat, parsed["dimxiadj"] + parsed["dimxifeat"]])))
-    parsed["diml1dec"] = parsed["diml1enc"]
+    parsed["diml1dec"] = Int64(round(geomean([dimlabels, parsed["dimxiadj"] + parsed["dimxifeat"]])))
     parsed
 end
 
@@ -172,10 +184,17 @@ function dataset(args)
         flowrank_dim, flowrank_rank, flowrank_noisescale = args["flowrank_dim"], args["flowrank_rank"], args["flowrank_noisescale"]
         features = Generative.make_clusteredhyperplane(Float32, (flowrank_dim, l * k), flowrank_rank, flowrank_noisescale, communities, correlation)
         @assert rank(features) == flowrank_rank
-        labels = features
-        if args["flowrank_catdiag"]
+        if args["flowrank_catdiag"] == nothing
+            labels = features
+        elseif args["flowrank_catdiag"] == "input"
+            labels = features
             features = vcat(features, Array(Diagonal(ones(Float32, l * k))))
+        else
+            @assert args["flowrank_catdiag"] == "both"
+            features = vcat(features, Array(Diagonal(ones(Float32, l * k))))
+            labels = features
         end
+
         features, labels
     end
 
