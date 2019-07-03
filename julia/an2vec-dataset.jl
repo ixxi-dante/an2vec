@@ -15,6 +15,7 @@ using NPZ
 using ScikitLearn
 using Random
 using StatsBase
+using LinearAlgebra
 @sk_import metrics: (roc_auc_score, average_precision_score, f1_score)
 @sk_import linear_model: LogisticRegression
 
@@ -74,6 +75,11 @@ function parse_cliargs()
             arg_type = Int
             # default = 1
             required = true
+        "--catdiag"
+            help = """
+                concatenate I_N to features and possibly labels too;
+                if provided, must be either "input" for catdiag on encoder input and not on decoder output, or "both" for input and output"""
+            arg_type = String
         "--bias"
             help = "activate/deactivate bias in the VAE"
             arg_type = Bool
@@ -110,6 +116,7 @@ function parse_cliargs()
     parsed = parse_args(ARGS, parse_settings)
 
     @assert parsed["testtype"] in [nothing, "nodes", "edges"]
+    @assert parsed["catdiag"] in [nothing, "input", "both"]
     parsed["initb"] = parsed["bias"] ? (s) -> zeros(Float32, s) : VAE.Layers.nobias
     parsed["label-distribution"] = VAE.label_distributions[parsed["label-distribution"]]
     parsed
@@ -151,8 +158,21 @@ function dataset(args)
     features[:, idx] = features[:, shuffledidx]
     classes[:, idx] = classes[:, shuffledidx]
 
+    # Concatenate an identity matrix if asked to
+    if args["catdiag"] == nothing
+        labels = features
+    elseif args["catdiag"] == "input"
+        labels = features
+        features = vcat(features, Array(Diagonal(ones(Float32, nnodes))))
+    else
+        @assert args["catdiag"] == "both"
+        features = vcat(features, Array(Diagonal(ones(Float32, nnodes))))
+        labels = features
+    end
+
     @assert eltype(features) == Float32
-    g, features, classes
+    @assert eltype(labels) == Float32
+    g, features, labels, classes
 end
 
 
@@ -232,10 +252,9 @@ function main()
     end
 
     println("Loading the dataset")
-    g, _features, classes = dataset(args)
-    labels = _features
+    g, _features, labels, classes = dataset(args)
     feature_size = size(_features, 1)
-    label_size = feature_size
+    label_size = size(labels, 1)
     if args["testtype"] == nothing
         gtrain = g
         test_nodes = nothing
@@ -244,7 +263,8 @@ function main()
         gtrain, test_true_edges, test_false_edges = Dataset.make_edges_test_set(g, args["testprop"])
         test_nodes = nothing
         train_nodes = 1:nv(g)
-    elseif args["testtype"] == "nodes"
+    else
+        @assert args["testtype"] == "nodes"
         gtrain, test_nodes, train_nodes = Dataset.make_nodes_test_set(g, args["testprop"])
     end
     fnormalise = normaliser(_features[:, train_nodes])
