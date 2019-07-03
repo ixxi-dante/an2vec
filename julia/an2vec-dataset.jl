@@ -39,7 +39,6 @@ function parse_cliargs()
             help = "percentage of edges/nodes to add (or add and remove, for edges) to training dataset for reconstruction/classification testing"
             arg_type = Float64
             # default = 0.15
-            required = true
         "--testtype"
             help = "test type; if provided, must be either \"nodes\" for classification, or \"edges\" for link prediction"
             arg_type = String
@@ -116,6 +115,11 @@ function parse_cliargs()
     parsed = parse_args(ARGS, parse_settings)
 
     @assert parsed["testtype"] in [nothing, "nodes", "edges"]
+    if parsed["testtype"] == nothing
+        @assert parsed["testprop"] == nothing
+    else
+        @assert parsed["testprop"] != nothing
+    end
     @assert parsed["catdiag"] in [nothing, "input", "both"]
     parsed["initb"] = parsed["bias"] ? (s) -> zeros(Float32, s) : VAE.Layers.nobias
     parsed["label-distribution"] = VAE.label_distributions[parsed["label-distribution"]]
