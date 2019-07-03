@@ -40,9 +40,8 @@ function parse_cliargs()
             # default = 0.15
             required = true
         "--testtype"
-            help = "test type; must be either \"nodes\" for classification, or \"edges\" for link prediction"
+            help = "test type; if provided, must be either \"nodes\" for classification, or \"edges\" for link prediction"
             arg_type = String
-            required = true
         "--seed"
             help = "Random seed for test set generation"
             arg_type = Int
@@ -109,9 +108,10 @@ function parse_cliargs()
     end
 
     parsed = parse_args(ARGS, parse_settings)
-    @assert parsed["testtype"] in ["nodes", "edges"]
-    parsed["label-distribution"] = VAE.label_distributions[parsed["label-distribution"]]
+
+    @assert parsed["testtype"] in [nothing, "nodes", "edges"]
     parsed["initb"] = parsed["bias"] ? (s) -> zeros(Float32, s) : VAE.Layers.nobias
+    parsed["label-distribution"] = VAE.label_distributions[parsed["label-distribution"]]
     parsed
 end
 
@@ -236,12 +236,15 @@ function main()
     labels = _features
     feature_size = size(_features, 1)
     label_size = feature_size
-    if args["testtype"] == "edges"
+    if args["testtype"] == nothing
+        gtrain = g
+        test_nodes = nothing
+        train_nodes = 1:nv(g)
+    elseif args["testtype"] == "edges"
         gtrain, test_true_edges, test_false_edges = Dataset.make_edges_test_set(g, args["testprop"])
         test_nodes = nothing
         train_nodes = 1:nv(g)
-    else
-        @assert args["testtype"] == "nodes"
+    elseif args["testtype"] == "nodes"
         gtrain, test_nodes, train_nodes = Dataset.make_nodes_test_set(g, args["testprop"])
     end
     fnormalise = normaliser(_features[:, train_nodes])
