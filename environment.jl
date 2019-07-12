@@ -10,6 +10,7 @@ Pkg.add([
     PackageSpec("Flux"),
     PackageSpec("GraphPlot"),
     PackageSpec("GZip"),
+    PackageSpec("IJulia"),
     PackageSpec("Images"),
     PackageSpec("JLD"),
     PackageSpec("Juno"),
