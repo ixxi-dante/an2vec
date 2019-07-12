@@ -9,7 +9,8 @@ Setup
 This project uses a mix of Python and Julia (with the julia part steadily growing).
 
 For Julia: we're running 1.1, but you can get the [latest version](https://julialang.org/).
-To install the required dependencies, run `julia environment.jl`.
+To install the required dependencies on your laptop, run `julia environment.jl`.
+On a headless server, or a machine on which you don't have the dependencies necessary for [Makie.jl](https://github.com/JuliaPlots/Makie.jl) (notably GLFW), you can instead run `julia environment.headless.jl` to use Makie's Cairo backend.
 
 For Python: using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 

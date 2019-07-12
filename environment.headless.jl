@@ -19,7 +19,7 @@ Pkg.add([
     PackageSpec("MLBase"),
     PackageSpec(name = "AbstractPlotting", rev = "master"),
     PackageSpec(name = "CairoMakie", rev = "master"),
-    PackageSpec(name = "GLMakie", rev = "master"),
+    # PackageSpec(name = "GLMakie", rev = "master"),
     PackageSpec(name = "Makie", rev = "master"),
     PackageSpec("NPZ"),
     PackageSpec("Printf"),
