@@ -34,12 +34,22 @@ rowinmatrix(r::AbstractVector, m::AbstractMatrix) = any(all(reshape(r, 1, :) .==
 # Neural network helpers
 #
 
-function normaliser(x; dims = 2)
-    xmean = mean(x, dims = dims)
-    xscale = std(x, dims = dims)
-    zeros = findall(xscale .== 0)
-    xscale[zeros] = ones(eltype(xscale), size(zeros))
-    y -> (y .- xmean) ./ xscale
+function normaliser(x)
+    # Do case normalisation
+    function _normaliser(y)
+        ymean = mean(y, dims = 1)
+        yscale = std(y, dims = 1)
+        zeros = findall(yscale .== 0)
+        yscale[zeros] = ones(eltype(yscale), size(zeros))
+        (y .- ymean) ./ yscale
+    end
+    _normaliser
+    # Input normalisation would be this
+    # xmean = mean(x, dims = 2)
+    # xscale = std(x, dims = 2)
+    # zeros = findall(xscale .== 0)
+    # xscale[zeros] = ones(eltype(xscale), size(zeros))
+    # y -> (y .- xmean) ./ xscale
 end
 
 #
