@@ -14,7 +14,9 @@ On a headless server, or a machine on which you don't have the dependencies nece
 
 For Python: using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 
-Finally, activate the anaconda environment and run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
+Then activate the anaconda environment, and run `python -m julia.sysimage julia/sys.so` to [build a custom julia system image](https://pyjulia.readthedocs.io/en/stable/sysimage.html#how-to-use-a-custom-system-image), making sure calls from python to julia will work.
+
+Finally, still with the environment activated, run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
 
 ### GPU-enabled computations
 

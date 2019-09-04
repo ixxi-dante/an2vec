@@ -7,6 +7,7 @@ using LinearAlgebra
 using SparseArrays
 using LightGraphs
 using StatsBase
+using GraphIO
 
 
 """Create a test graph from `g` with `p` percent of deleted edges, returning the new graph, the list of removed edges, and a list of as many negative edges (edges that are absent in `g`)"""
@@ -57,6 +58,15 @@ function make_nodes_test_set(g::SimpleGraph, p)
     end
 
     gtrain, sort(test_nodes), train_nodes
+end
+
+function make_nodes_test_set(edgelistpath::AbstractString, p)
+    g = SimpleGraph(loadgraph(edgelistpath, "", EdgeListFormat()))
+    gtrain, test_nodes, train_nodes = make_nodes_test_set(g, p)
+    (path, io) = mktemp()
+    savegraph(io, gtrain, "", EdgeListFormat())
+    close(io)
+    path, test_nodes, train_nodes
 end
 
 
