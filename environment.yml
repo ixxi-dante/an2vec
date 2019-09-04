@@ -38,7 +38,7 @@ dependencies:
 - spacy
 - statsmodels
 # CPU tensorflow
-- tensorflow
+- tensorflow=1.13.1=mkl_py36h27d456a_0
 # GPU tensorflow
 #- tensorflow-gpu
 - tqdm
@@ -51,7 +51,6 @@ dependencies:
   - nbdime
   - setuptools-rust
   - vprof
-  - "git+https://github.com/ixxi-dante/keras@b50534bd55151c72782ecc630e21bb2e4d9a68d7#egg=keras"
-  - "git+https://github.com/ixxi-dante/jwalk@03aac5dc0bd6d2dad496a00e4d0dc127ef2c87c0#egg=jwalk"
+  - stellargraph
   - "--editable=."
 
