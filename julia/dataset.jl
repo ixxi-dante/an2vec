@@ -6,6 +6,7 @@ import .Utils: rowinmatrix
 using LinearAlgebra
 using SparseArrays
 using LightGraphs
+using MetaGraphs
 using StatsBase
 using GraphIO
 
@@ -49,24 +50,72 @@ end
 function make_nodes_test_set(g::SimpleGraph, p)
     nnodes = nv(g)
     test_size = Int64(round(nnodes * p))
-    test_nodes = sample(1:nnodes, test_size, replace = false)
-    train_nodes = setdiff(1:nnodes, test_nodes)
+    nodes_test = sample(1:nnodes, test_size, replace = false)
+    nodes_train = collect(1:nnodes)
 
     gtrain = copy(g)
-    for i in sort(test_nodes, rev = true)
+    for i in sort(nodes_test, rev = true)
         @assert rem_vertex!(gtrain, i)
+        nodes_train[i] = nodes_train[length(nodes_train)]
+        nodes_train = nodes_train[1:end-1]
     end
 
-    gtrain, sort(test_nodes), train_nodes
+    gtrain, sort(nodes_test), nodes_train
 end
 
-function make_nodes_test_set(edgelistpath::AbstractString, p)
-    g = SimpleGraph(loadgraph(edgelistpath, "", EdgeListFormat()))
-    gtrain, test_nodes, train_nodes = make_nodes_test_set(g, p)
-    (path, io) = mktemp()
-    savegraph(io, gtrain, "", EdgeListFormat())
-    close(io)
-    path, test_nodes, train_nodes
+function make_nodes_test_set(mg::MetaGraph, p)
+    gtrain, nodes_test, nodes_train = make_nodes_test_set(SimpleGraph(mg), p)
+    # Copy over all node properties
+    mgtrain = MetaGraph(gtrain)
+    for i in 1:nv(mgtrain)
+        set_props!(mgtrain, i, props(mg, nodes_train[i]))
+    end
+    # Copy over all edge properties
+    for e in edges(mgtrain)
+        i, j = Tuple(e)
+        set_props!(mgtrain, e, props(mg, Edge(nodes_train[i], nodes_train[j])))
+    end
+    mgtrain, nodes_test, nodes_train
+end
+
+node2id(mg, node) = props(mg, node)[:id]
+
+function mg_from_idedgelist(edgelist::Array{Int64,2})
+    # Check we have source->destination pairs
+    @assert size(edgelist)[2] == 2
+    # Get node ids
+    nodeids = sort(collect(Set(edgelist)))
+    nnodes = length(nodeids)
+    idnodes = Dict(id => node for (node, id) in enumerate(nodeids))
+    # Build the graph
+    g = SimpleGraph(nnodes)
+    for i in 1:size(edgelist)[1]
+        source = idnodes[edgelist[i, 1]]
+        target = idnodes[edgelist[i, 2]]
+        add_edge!(g, Tuple([source, target]))
+    end
+    # Add attributes
+    mg = MetaGraph(g)
+    for i in 1:nv(g)
+        set_prop!(mg, i, :id, nodeids[i])
+    end
+    mg
+end
+
+function mg_to_idedgelist(mg::MetaGraph)
+    edgelist_nodes = Tuple.(edges(mg))
+    map(e -> (node2id(mg, e[1]), node2id(mg, e[2])), edgelist_nodes)
+end
+
+function make_nodes_test_set(edgelist::Array{Int64,2}, p)
+    mg = mg_from_idedgelist(edgelist)
+    mgtrain, nodes_test, nodes_train = make_nodes_test_set(mg, p)
+
+    # Convert node arrays to ids
+    mnodes_test = map(n -> node2id(mg, n), nodes_test)
+    mnodes_train = map(n -> node2id(mg, n), nodes_train)
+
+    mg_to_idedgelist(mgtrain), mnodes_test, mnodes_train
 end
 
 
