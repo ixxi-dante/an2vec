@@ -8,7 +8,6 @@ using SparseArrays
 using LightGraphs
 using MetaGraphs
 using StatsBase
-using GraphIO
 
 
 """Create a test graph from `g` with `p` percent of deleted edges, returning the new graph, the list of removed edges, and a list of as many negative edges (edges that are absent in `g`)"""
