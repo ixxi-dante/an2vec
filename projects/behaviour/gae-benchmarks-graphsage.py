@@ -40,9 +40,11 @@ args = parser.parse_args()
 ## Set up Julia
 
 # This can be simplified once https://github.com/JuliaPy/pyjulia/issues/310 is fixed
+with open("/etc/hostname") as f:
+    hostname = f.readline().strip()
 from julia.api import LibJulia
 api = LibJulia.load()
-api.sysimage = "julia/sys.so"
+api.sysimage = "julia/sys-{}.so".format(hostname)
 api.init_julia()
 from julia import Main
 Main.eval('include("julia/dataset.jl")')
