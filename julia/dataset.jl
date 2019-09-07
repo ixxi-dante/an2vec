@@ -20,30 +20,45 @@ function make_edges_test_set(g::SimpleGraph, p)
     test_size = Int64(round(nedges * p))
 
     test_true_idx = sample(1:nedges, test_size, replace = false)
-    test_true_edges = edges_triu[test_true_idx, :]
+    edges_test_true = edges_triu[test_true_idx, :]
 
     gathered_false_edges = 0
-    test_false_edges = similar(test_true_edges)
+    edges_test_false = similar(edges_test_true)
     while gathered_false_edges < test_size
         candidate = sample(1:A_size, 2, replace = false)
         if (rowinmatrix(candidate, edges_triu)
                 || rowinmatrix(candidate[end:-1:1], edges_triu)
-                || rowinmatrix(candidate, test_false_edges)
-                || rowinmatrix(candidate[end:-1:1], test_false_edges))
+                || rowinmatrix(candidate, edges_test_false)
+                || rowinmatrix(candidate[end:-1:1], edges_test_false))
             continue
         end
-        test_false_edges[gathered_false_edges+1, :] = candidate
+        edges_test_false[gathered_false_edges+1, :] = candidate
         gathered_false_edges += 1
     end
 
     gtrain = copy(g)
     for i in 1:test_size
-        @assert rem_edge!(gtrain, test_true_edges[i, :]...)
+        @assert rem_edge!(gtrain, edges_test_true[i, :]...)
     end
 
-    gtrain, test_true_edges, test_false_edges
+    gtrain, edges_test_true, edges_test_false
 end
 
+function make_edges_test_set(mg::MetaGraph, p)
+    gtrain, edges_test_true, edges_test_false = make_edges_test_set(SimpleGraph(mg), p)
+    metragraph_with_props_from(gtrain, mg, collect(1:nv(mg))), edges_test_true, edges_test_false
+end
+
+function make_edges_test_set(edgelist::Array{Int64,2}, p)
+    mg = mg_from_idedgelist(edgelist)
+    mgtrain, edges_test_true, edges_test_false = make_edges_test_set(mg, p)
+
+    # Convert edge arrays to ids
+    medges_test_true = map(n -> node2id(mg, n), edges_test_true)
+    medges_test_false = map(n -> node2id(mg, n), edges_test_false)
+
+    mg_to_idedgelist(mgtrain), medges_test_true, medges_test_false
+end
 
 """Create a test graph from `g` with `p` percent of deleted nodes, returning the new graph, the list of removed (test) nodes, and the list of remaining (train) nodes"""
 function make_nodes_test_set(g::SimpleGraph, p)
@@ -64,17 +79,32 @@ end
 
 function make_nodes_test_set(mg::MetaGraph, p)
     gtrain, nodes_test, nodes_train = make_nodes_test_set(SimpleGraph(mg), p)
+    metragraph_with_props_from(gtrain, mg, nodes_train), nodes_test, nodes_train
+end
+
+function make_nodes_test_set(edgelist::Array{Int64,2}, p)
+    mg = mg_from_idedgelist(edgelist)
+    mgtrain, nodes_test, nodes_train = make_nodes_test_set(mg, p)
+
+    # Convert node arrays to ids
+    mnodes_test = map(n -> node2id(mg, n), nodes_test)
+    mnodes_train = map(n -> node2id(mg, n), nodes_train)
+
+    mg_to_idedgelist(mgtrain), mnodes_test, mnodes_train
+end
+
+function metragraph_with_props_from(g::SimpleGraph, mg::MetaGraph, g2mg_nodes_map::Array{Int64})
+    mgout = MetaGraph(g)
     # Copy over all node properties
-    mgtrain = MetaGraph(gtrain)
-    for i in 1:nv(mgtrain)
-        set_props!(mgtrain, i, props(mg, nodes_train[i]))
+    for i in 1:nv(mgout)
+        set_props!(mgout, i, props(mg, g2mg_nodes_map[i]))
     end
     # Copy over all edge properties
-    for e in edges(mgtrain)
+    for e in edges(mgout)
         i, j = Tuple(e)
-        set_props!(mgtrain, e, props(mg, Edge(nodes_train[i], nodes_train[j])))
+        set_props!(mgout, e, props(mg, Edge(g2mg_nodes_map[i], g2mg_nodes_map[j])))
     end
-    mgtrain, nodes_test, nodes_train
+    mgout
 end
 
 node2id(mg, node) = props(mg, node)[:id]
@@ -103,18 +133,13 @@ end
 
 function mg_to_idedgelist(mg::MetaGraph)
     edgelist_nodes = Tuple.(edges(mg))
+    nodes_in_edgelist = union(Set.(edgelist_nodes)...)
+    nodes_lost = setdiff(1:nv(mg), nodes_in_edgelist)
+    if length(nodes_lost) > 0
+        println("Warning: nodes lost in conversion to edgelist:")
+        println(nodes_lost)
+    end
     map(e -> (node2id(mg, e[1]), node2id(mg, e[2])), edgelist_nodes)
-end
-
-function make_nodes_test_set(edgelist::Array{Int64,2}, p)
-    mg = mg_from_idedgelist(edgelist)
-    mgtrain, nodes_test, nodes_train = make_nodes_test_set(mg, p)
-
-    # Convert node arrays to ids
-    mnodes_test = map(n -> node2id(mg, n), nodes_test)
-    mnodes_train = map(n -> node2id(mg, n), nodes_train)
-
-    mg_to_idedgelist(mgtrain), mnodes_test, mnodes_train
 end
 
 
