@@ -1,12 +1,12 @@
 using DataFrames, NPZ, GZip, CSV, ProgressMeter
 
 
-folder = "git=2b55e75a07-dataset=cora,citeseer-clean-testprop=0.15,0.1:0.1:0.9-testtype=nodes,edges-diml1enc=32-diml1dec=32-dimxiadj=32-dimxifeat=32-overlap=0,8,16,24,32-bias=false-sharedl1=false-decadjdeep=true,false-nepochs=200-nsamples=10"
+folder = "git=15257d5eec-dataset=cora,citeseer-clean-testprop=0.15,0.1:0.1:0.9-testtype=nodes,edges-diml1enc=32-diml1dec=32-dimxiadj=24-dimxifeat=24-overlap=0,8,16,24-bias=false-sharedl1=false-decadjdeep=true,false-nepochs=200-nsamples=10"
 pattern = Regex(folder * "/dataset=([^-]+(?:-clean)?)-testtype=([^-]+)-testprop=([^-]+)-decadjdeep=([^-]+)-dimxi=([^-]+)-sample=([^-]+).npz")
 basedir = "data/behaviour/gae-benchmarks/"
-refnfiles = 4000
+refnfiles = 3200
 
-for (root, dirs, files) in walkdir(basedir)
+for (root, dirs, files) in walkdir(basedir * folder)
     println("root = $root")
 
     npzfiles = filter((f) -> f[end-2:end] == "npz", files)
