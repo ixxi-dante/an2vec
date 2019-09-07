@@ -21,6 +21,8 @@ from sklearn.metrics import f1_score
 parser = argparse.ArgumentParser(description='Run GraphSAGE node classification benchmark.')
 parser.add_argument('--dataset', type=str, required=True,
                     help="path to a npz file containing adjacency and features of a dataset")
+parser.add_argument('--testtype', type=str, required=True,
+                    help=("either \"nodes\" for classification, or \"edges\" for link prediction"))
 parser.add_argument('--testprop', type=float, required=True,
                     help=("percentage of edges/nodes to add (or add and remove, for edges) to "
                           "training dataset for reconstruction/classification testing"))
@@ -51,6 +53,8 @@ Main.eval('include("julia/dataset.jl")')
 
 
 ## Settings
+testtype = args.testtype
+assert testtype in ['edges', 'nodes']
 testprop = args.testprop
 bias = args.bias
 layer_sizes = [args.diml1enc, args.dimxiadj]
@@ -78,7 +82,7 @@ nx.set_node_attributes(Gnx, "paper", "label")
 node_features = pd.DataFrame(dataset['features'], dtype=int)
 
 
-## Create a nodes test set
+## Create a test set
 def to_julia_edgelist(g):
     return 1 + nx.to_pandas_edgelist(Gnx)[['source', 'target']].values
 
@@ -89,10 +93,22 @@ def from_julia_edgelist(edgelist):
     nx.set_node_attributes(g, "paper", "label")
     return g
 
-gtrain_edgelist, nodes_test, nodes_train = Main.Dataset.make_nodes_test_set(to_julia_edgelist(Gnx), testprop)
-nodes_test = nodes_test - 1
-nodes_train = nodes_train - 1
-Gtrain_nx = from_julia_edgelist(gtrain_edgelist)
+if testtype == 'nodes':
+    gtrain_edgelist, nodes_test, nodes_train = Main.Dataset.make_nodes_test_set(to_julia_edgelist(Gnx), testprop)
+    nodes_test = nodes_test - 1
+    nodes_train = nodes_train - 1
+    Gtrain_nx = from_julia_edgelist(gtrain_edgelist)
+else:
+    assert testtype == 'edges'
+    gtrain_edgelist, edges_test_true, edges_test_false = Main.Dataset.make_edges_test_set(to_julia_edgelist(Gnx), testprop)
+    edges_test_true = edges_test_true - 1
+    edges_test_false = edges_test_false - 1
+    Gtrain_nx = from_julia_edgelist(gtrain_edgelist)
+    # Recover nodes that are now isolated in Gtrain_nx, not seen through the edgelist
+    for n in Gnx.nodes():
+        if n not in Gtrain_nx.nodes():
+            Gtrain_nx.add_node(n)
+    nx.set_node_attributes(Gtrain_nx, "paper", "label")
 
 
 ## Train the embedding
@@ -148,19 +164,34 @@ emb = embedding_model.predict_generator(node_gen, workers=nworkers, verbose=verb
 node_embeddings = emb[:, 0, :]
 
 
-## Node classification
+if testtype == 'nodes':
+    ## Node classification
+    X = node_embeddings
+    y = np.where(dataset['labels'])[1]
 
-X = node_embeddings
-y = np.where(dataset['labels'])[1]
+    # Train a Logistic Regression classifier on the training data.
+    X_train, X_test, y_train, y_test = X[nodes_train, :], X[nodes_test, :], y[nodes_train], y[nodes_test]
+    clf = LogisticRegression(verbose=verbose, solver='liblinear', multi_class="ovr")
+    clf.fit(X_train, y_train)
 
-# Train a Logistic Regression classifier on the training data.
-X_train, X_test, y_train, y_test = X[nodes_train, :], X[nodes_test, :], y[nodes_train], y[nodes_test]
-clf = LogisticRegression(verbose=verbose, solver='liblinear', multi_class="ovr")
-clf.fit(X_train, y_train)
+    # Predict the hold out test set.
+    y_pred = clf.predict(X_test)
 
-# Predict the hold out test set.
-y_pred = clf.predict(X_test)
+    # Calculate the accuracy of the classifier on the test set.
+    print('f1macro={}'.format(f1_score(y_test, y_pred, average='macro')))
+    print('f1micro={}'.format(f1_score(y_test, y_pred, average='micro')))
+else:
+    ## Link prediction
+    assert testtype == 'edges'
 
-# Calculate the accuracy of the classifier on the test set.
-print('f1macro={}'.format(f1_score(y_test, y_pred, average='macro')), end=None)
-print('f1micro={}'.format(f1_score(y_test, y_pred, average='micro')), end=None)
+    # Prepare test and real arrays
+    edges_test_all = np.concatenate([edges_test_true, edges_test_false])
+    edges_real_all = np.concatenate([np.ones(edges_test_true.shape[0]), np.zeros(edges_test_false.shape[0])])
+
+    # Get predictions
+    test_gen = GraphSAGELinkGenerator(Gtrain, batch_size, num_samples).flow(edges_test_all)
+    edges_pred_all = model.predict_generator(test_gen)[:,0]
+
+    # Print out metrics
+    print('roc_auc={}'.format(roc_auc_score(edges_real_all, edges_pred_all)))
+    print('ap={}'.format(average_precision_score(edges_real_all, edges_pred_all)))
