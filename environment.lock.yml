@@ -224,6 +224,7 @@ dependencies:
     - ipydatawidgets==4.0.1
     - ipyvolume==0.5.2
     - ipywebrtc==0.5.0
+    - julia==0.4.1
     - jupyter-contrib-core==0.3.3
     - jupyter-contrib-nbextensions==0.5.1
     - jupyter-highlight-selected-word==0.2.0
@@ -234,7 +235,7 @@ dependencies:
     - lxml==4.4.1
     - nbdime==1.1.0
     - pythreejs==2.1.1
-    - semantic-version==2.8.1
+    - semantic-version==2.8.2
     - setuptools-rust==0.10.6
     - smmap2==2.0.5
     - stellargraph==0.7.1

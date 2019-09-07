@@ -46,6 +46,7 @@ dependencies:
 - pip:
   - ipdb
   - ipyvolume
+  - julia
   - jupyter_contrib_nbextensions
   - keras-tqdm
   - nbdime
