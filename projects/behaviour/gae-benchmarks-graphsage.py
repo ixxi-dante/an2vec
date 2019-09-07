@@ -14,7 +14,7 @@ from stellargraph.mapper import GraphSAGENodeGenerator
 
 import keras
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, roc_auc_score, average_precision_score
 
 
 ## Parse args
@@ -119,7 +119,8 @@ Gtrain = sg.StellarGraph(Gtrain_nx, node_features=node_features)
 # The graph G
 #                    together wi"number of parallel workers to use" the unsupervised sampler will be used to generate samples.
 actual_nodes_train = list(Gtrain.nodes())
-assert set(nodes_train).issuperset(actual_nodes_train)
+if testtype == 'nodes':
+    assert set(nodes_train).issuperset(actual_nodes_train)
 unsupervised_samples = UnsupervisedSampler(Gtrain, nodes=actual_nodes_train, length=length_of_walks, number_of_walks=number_of_walks)
 train_gen = GraphSAGELinkGenerator(Gtrain, batch_size, num_samples).flow(unsupervised_samples)
 

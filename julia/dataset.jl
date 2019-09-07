@@ -133,12 +133,6 @@ end
 
 function mg_to_idedgelist(mg::MetaGraph)
     edgelist_nodes = Tuple.(edges(mg))
-    nodes_in_edgelist = union(Set.(edgelist_nodes)...)
-    nodes_lost = setdiff(1:nv(mg), nodes_in_edgelist)
-    if length(nodes_lost) > 0
-        println("Warning: nodes lost in conversion to edgelist:")
-        println(nodes_lost)
-    end
     map(e -> (node2id(mg, e[1]), node2id(mg, e[2])), edgelist_nodes)
 end
 
