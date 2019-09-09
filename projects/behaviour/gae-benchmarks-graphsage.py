@@ -79,7 +79,7 @@ Gnx = nx.from_scipy_sparse_matrix(adj, edge_attribute='label')
 nx.set_edge_attributes(Gnx, 'cites', 'label')
 nx.set_node_attributes(Gnx, "paper", "label")
 # Extract features
-node_features = pd.DataFrame(dataset['features'], dtype=int)
+node_features = pd.DataFrame(dataset['features'])
 
 
 ## Create a test set
