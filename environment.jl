@@ -16,6 +16,7 @@ Pkg.add([
     PackageSpec("Juno"),
     PackageSpec("LightGraphs"),
     PackageSpec("LinearAlgebra"),
+    PackageSpec("MetaGraphs"),
     PackageSpec("MLBase"),
     PackageSpec(name = "AbstractPlotting", rev = "master"),
     PackageSpec(name = "CairoMakie", rev = "master"),
