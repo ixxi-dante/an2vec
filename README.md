@@ -1,4 +1,4 @@
-Attributed Node to Vec [![Build Status](https://travis-ci.org/ixxi-dante/an2vec.svg?branch=master)](https://travis-ci.org/ixxi-dante/an2vec)
+Attributed Node to Vec
 ======================
 
 Bring those two things together! Do cool context- and language-aware stuff! Okay, let's fill this a little more precisely now.
@@ -6,7 +6,7 @@ Bring those two things together! Do cool context- and language-aware stuff! Okay
 Setup
 -----
 
-This project uses a mix of Python and Julia (with the julia part steadily growing).
+This project uses mostly Julia (with left-over parts of Python in scripts, and more so in notebooks).
 
 For Julia: we're running 1.1, but you can get the [latest version](https://julialang.org/).
 To install the required dependencies on your laptop, run `julia environment.jl`.
@@ -14,13 +14,9 @@ On a headless server, or a machine on which you don't have the dependencies nece
 
 For Python: using Anaconda, set up the environment with `conda env create -f environment.lock.yml` (this builds the Rust extensions in this package, and installs them locally).
 
-Then activate the anaconda environment, and run `python -m julia.sysimage julia/sys.so` to [build a custom julia system image](https://pyjulia.readthedocs.io/en/stable/sysimage.html#how-to-use-a-custom-system-image), making sure calls from python to julia will work.
+Then activate the anaconda environment, and run `python -m julia.sysimage julia/sys-$(hostname).so` to [build a custom julia system image](https://pyjulia.readthedocs.io/en/stable/sysimage.html#how-to-use-a-custom-system-image), making sure calls from python to julia will work.
 
 Finally, still with the environment activated, run `./setup-datasets.sh` to set up the test datasets in the `datasets/` folder.
-
-### GPU-enabled computations
-
-If you plan on using the LIP `grunch` machine with GPUs, then use `conda env create -f environment.lock-gpu.yml` instead of the above `conda` command,
 
 ### Updating and managing the python environment
 
@@ -70,25 +66,13 @@ git fetch origin git-annex:git-annex  # Merge what was just pulled from the remo
 
 then `git push`ing again should work. Note that since git-annex tracks *which computer has which copy of which file*, whenever someone downloads a large file from the annex things get tracked and the `git-annex` branch is updated. So this `pull/fetch` dance might be necessary quite often as we start working with more people / more computers.
 
-### Optional Rust extension
-
-We started some work on a Rust extension (in `nw2vec-rust`), but it is currently disabled. This will be used in the future to speed up string parsing on the SoSweet dataset.
-Now if you want to work on that, install Rust nightly and make it default toolchain in the current directory:
-
-```bash
-rustup toolchain install nightly
-rustup override set nightly
-```
-
-Finally, make sure to run `pip install -e .` whenever you make a change to the extension, to recompile the code and give Python access to it.
-
 Analyses
 --------
 
-You can have a look at the [wiki](https://github.com/ixxi-dante/nw2vec/wiki).
+You can have a look at the [wiki](https://github.com/ixxi-dante/an2vec/wiki).
 The `projects/` folder contains all the notebooks and scripts for the repo's [projects](https://github.com/ixxi-dante/nw2vec/projects), and is probably the most interesting thing to look at.
-The `julia/` folder also has a growing number of explorations.
-The `data/` folder contains any data that may be produced by those analyses.
+The `julia/` folder the current implementation of AN2VEC.
+The `data/` folder contains any data that may be produced by analyses in `julia/` and `projects/`.
 
 For now, we don't use the Twitter data in the `datasets/` folder, so you can ignore the sections below this and jump directly to the wiki or the projects after having installed the environment.
 If, however, you want to play with the Twitter data, read on.

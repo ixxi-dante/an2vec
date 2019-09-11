@@ -53,5 +53,4 @@ dependencies:
   - setuptools-rust
   - vprof
   - stellargraph
-  - "--editable=."
 
