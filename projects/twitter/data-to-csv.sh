@@ -2,12 +2,14 @@
 # Create a mutual-mention network and a list of tweets per user from a sosweet dataset
 
 if [ $# -lt 2 ]; then
-  echo "Usage: $(basename $0) OUTFOLDER FILE [FILE ...]"
+  echo "Usage: $(basename $0) OUTNAME FILE [FILE ...]"
 fi
 
 function mention_network() {
-  echo "Extracting mutual-mention network from $1"
-  zcat $1 \
+  OUT=$1
+  shift
+  echo "Extracting mutual-mention network from $@"
+  zcat $@ \
     | sed 's/^[^\{]*//g' \
     | jq -R 'fromjson?' \
     | jq -c '. | [[.actor.id | ltrimstr("id:twitter.com:") | tonumber], [.twitter_entities.user_mentions[].id]] | combinations' \
@@ -16,12 +18,14 @@ function mention_network() {
     | uniq -c \
     | sed 's/^ \+//g' \
     | sed 's/ /,/g' \
-    > "$2"
+    > "$OUT"
 }
 
 function user_tweets() {
-  echo "Extracting user tweets from $1"
-  zcat $1 \
+  OUT=$1
+  shift
+  echo "Extracting user tweets from $@"
+  zcat $@ \
     | sed 's/^[^\{]*//g' \
     | jq -R 'fromjson?' \
     | jq -c '. | [(.actor.id | ltrimstr("id:twitter.com:") | tonumber), .body]' \
@@ -38,7 +42,7 @@ function user_tweets() {
     | tr "[:upper:]" "[:lower:]" \
     | tr -s " " \
     | sort \
-    > "$2"
+    > "$OUT"
 }
 
 function check_file_absent() {
@@ -49,18 +53,13 @@ function check_file_absent() {
   fi
 }
 
-OUTFOLDER=$1
+OUTNAME=$1
 shift
 
-for FILE in "$@"; do
-  NAME=$(basename $FILE)
-  NAME=${NAME%.*}
+NETWORK="${OUTNAME}-mutual_mention_network.csv"
+check_file_absent $NETWORK
+mention_network $NETWORK $@
 
-  NETWORK="$OUTFOLDER/${NAME}-mutual_mention_network.csv"
-  check_file_absent "$NETWORK"
-  mention_network $FILE $NETWORK
-
-  TWEETS="$OUTFOLDER/${NAME}-user_tweets.csv"
-  check_file_absent $TWEETS
-  user_tweets $FILE $TWEETS
-done
+TWEETS="${OUTNAME}-user_tweets.csv"
+check_file_absent $TWEETS
+user_tweets $TWEETS $@
