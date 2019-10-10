@@ -91,6 +91,8 @@ datasets
 ├── YouTube-dataset          #
 ├── sosweet-raw              # Raw Twitter data
 │     -> /warehouse/COMPLEXNET/TWITTER/data
+├── sosweet-raw-retweets     # Raw Twitter data for the time range with retweets
+│     -> /warehouse/COMPLEXNET/nw2vec/sosweet-raw-retweets
 ├── sosweet-network          # Files encoding the network(s) of users and its embedding(s)
 │     -> /warehouse/COMPLEXNET/nw2vec/sosweet-network
 ├── sosweet-text             # Files encoding the text of tweets

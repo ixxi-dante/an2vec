@@ -1,8 +1,8 @@
 #!/bin/bash -e
 # Create a mutual-mention network and a list of tweets per user from a sosweet dataset
 
-if [ $# -eq 0 ]; then
-  echo "Usage: $(basename $0) FILE [FILE ...]"
+if [ $# -lt 2 ]; then
+  echo "Usage: $(basename $0) OUTFOLDER FILE [FILE ...]"
 fi
 
 function mention_network() {
@@ -49,14 +49,18 @@ function check_file_absent() {
   fi
 }
 
-for FILE in "$@"; do
-  BASE=${FILE%.*}
+OUTFOLDER=$1
+shift
 
-  NETWORK="${BASE}-mutual_mention_network.csv"
+for FILE in "$@"; do
+  NAME=$(basename $FILE)
+  NAME=${NAME)%.*}
+
+  NETWORK="$OUTFOLDER/${NAME}-mutual_mention_network.csv"
   check_file_absent "$NETWORK"
   mention_network $FILE $NETWORK
 
-  TWEETS="${BASE}-user_tweets.csv"
+  TWEETS="$OUTFOLDER/${NAME}-user_tweets.csv"
   check_file_absent $TWEETS
   user_tweets $FILE $TWEETS
 done
