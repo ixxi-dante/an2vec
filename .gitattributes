@@ -1,2 +1,3 @@
 *.ipynb	diff=jupyternotebook
 *.ipynb	merge=jupyternotebook
+* annex.largefiles=nothing
