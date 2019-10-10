@@ -54,7 +54,7 @@ shift
 
 for FILE in "$@"; do
   NAME=$(basename $FILE)
-  NAME=${NAME)%.*}
+  NAME=${NAME%.*}
 
   NETWORK="$OUTFOLDER/${NAME}-mutual_mention_network.csv"
   check_file_absent "$NETWORK"
