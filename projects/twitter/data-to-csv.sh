@@ -10,7 +10,7 @@ function mention_network() {
   zcat $1 \
     | sed 's/^[^\{]*//g' \
     | jq -R 'fromjson?' \
-    | jq -c '. | [[.actor.id | ltrimstr("id:twitter.com:") | tonumber ], [.twitter_entities.user_mentions[].id]] | combinations' \
+    | jq -c '. | [[.actor.id | ltrimstr("id:twitter.com:") | tonumber], [.twitter_entities.user_mentions[].id]] | combinations' \
     | sed 's/\[\|\]//g' \
     | sort \
     | uniq -c \
@@ -24,7 +24,7 @@ function user_tweets() {
   zcat $1 \
     | sed 's/^[^\{]*//g' \
     | jq -R 'fromjson?' \
-    | jq -c '. | [(.actor.id | ltrimstr("id:twitter.com:") | tonumber),.body]' \
+    | jq -c '. | [(.actor.id | ltrimstr("id:twitter.com:") | tonumber), .body]' \
     | sed 's/\[\|\]//g' \
     | sed 's/,/ /g' \
     | sed 's!\S*\.\S*!!g' \
