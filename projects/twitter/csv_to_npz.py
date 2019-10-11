@@ -248,7 +248,7 @@ def build_uid2tweets(filepath, uid2orig, orig2lcc):
 def build_w2v_model(args, uid2tweets):
     """Build Word2Vec model using provided list of tweets."""
 
-    all_tweets = list(itertools.chain(uid2tweets.values()))
+    all_tweets = list(itertools.chain.from_iterable(uid2tweets.values()))
     logging.info("Build word2vec model over %s tweets", len(all_tweets))
 
     # gensim's word2vec doesn't seem to take `-1` as meaning 'use all cpus'
