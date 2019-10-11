@@ -183,8 +183,7 @@ def build_adj_lcc(args, filepath):
 
     logging.info("Extract largest connected component from "
                  "mutual mention graph")
-    g_lcc = g_mutual.subgraph(max(nx.weakly_connected_components(g_mutual),
-                                  key=len))
+    g_lcc = g_mutual.subgraph(max(nx.connected_components(g_mutual), key=len))
 
     logging.info("Relabel largest connected component node ids")
     orig2lcc = dict((id, n) for n, id in enumerate(g_lcc.nodes))
