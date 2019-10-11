@@ -135,10 +135,12 @@ def csv_to_adj(filepath):
 
     with open(filepath, "r") as csvfile:
         for line in csvfile:
-            # try:
-            weight, src, dst = [int(v) for v in line.split(',')]
-            # except ValueError:
-            #     pass
+            try:
+                weight, src, dst = [int(v) for v in line.split(',')]
+            except ValueError:
+                # Some lines have `null` user ids, thanks to
+                # the original SoSweet data
+                pass
             if src not in uid2adj.keys():
                 uid2adj[src] = nids
                 nids += 1
