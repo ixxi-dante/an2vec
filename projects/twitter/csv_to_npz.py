@@ -26,7 +26,7 @@ from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.cluster import SpectralClustering
 
 
-UINT8_MAX_VALUE = np.iinfo(np.uint8).max
+UINT32_MAX_VALUE = np.iinfo(np.uint32).max
 SIMILARITIES_THRESHOLD = 1e-9
 
 logging.basicConfig()
@@ -113,10 +113,10 @@ def get_stopwords():
         return set(file.read().split())
 
 
-def check_uint8_encodable(array):
-    """Is `array` encodable as np.uint8."""
-    assert array.min() >= 0, "Can't encode as np.uint8"
-    assert array.max() <= UINT8_MAX_VALUE, "Can't encode as np.uint8"
+def check_uint32_encodable(array):
+    """Is `array` encodable as np.uint32."""
+    assert array.min() >= 0, "Can't encode as np.uint32"
+    assert array.max() <= UINT32_MAX_VALUE, "Can't encode as np.uint32"
 
 
 def csv_to_adj(filepath):
@@ -158,8 +158,8 @@ def csv_to_adj(filepath):
     rows = np.array(rows)
     cols = np.array(cols)
     data = np.array(data)
-    check_uint8_encodable(data)
-    adj = coo_matrix((data, (rows, cols)), shape=(nids, nids), dtype=np.uint8)
+    check_uint32_encodable(data)
+    adj = coo_matrix((data, (rows, cols)), shape=(nids, nids), dtype=np.uint32)
     adj.sum_duplicates()
 
     return adj, uid2adj
@@ -195,7 +195,7 @@ def build_adj_lcc(args, filepath):
         "Mutual mention lcc does not cover all node ids"
 
     logging.info("Convert largest connected component to adjacency matrix")
-    adj_lcc = nx.to_scipy_sparse_matrix(g_lcc, dtype=np.uint8, weight='weight',
+    adj_lcc = nx.to_scipy_sparse_matrix(g_lcc, dtype=np.uint32, weight='weight',
                                         nodelist=sorted(g_lcc.nodes()))
     adj_lcc = coo_matrix(adj_lcc)
 
@@ -332,8 +332,8 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
     rows = np.array(rows)
     cols = np.array(cols)
     data = np.array(data)
-    check_uint8_encodable(data)
-    user_features = coo_matrix((data, (rows, cols)), dtype=np.uint8)
+    check_uint32_encodable(data)
+    user_features = coo_matrix((data, (rows, cols)), dtype=np.uint32)
     user_features.sum_duplicates()
 
     logging.info("Keep only users present in the mutual "
