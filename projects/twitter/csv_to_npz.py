@@ -29,6 +29,9 @@ from sklearn.cluster import SpectralClustering
 UINT8_MAX_VALUE = np.iinfo(np.uint8).max
 SIMILARITIES_THRESHOLD = 1e-9
 
+logging.basicConfig()
+logging.root.setLevel(logging.NOTSET)
+
 
 def parse_args():
     """Parse all script arguments from the command line return
