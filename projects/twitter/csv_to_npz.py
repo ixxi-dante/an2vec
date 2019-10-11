@@ -69,8 +69,8 @@ def parse_args():
                         "an2vec")
 
     parser.add_argument('--cluster2words_path', type=str,
-                        help="Path to save the assocation of a cluster to "
-                        "its words; if not provided, skip saving")
+                        help="Path to save the pickled assocation of a cluster "
+                        "to its words; if not provided, skip saving")
     parser.add_argument('--uid2orig_path', type=str, required=True,
                         help="Path to save the pickled map of user ids to "
                         "ids in the full graph (extracted from "
