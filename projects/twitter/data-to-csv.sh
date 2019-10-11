@@ -56,7 +56,7 @@ function check_file_absent() {
 OUTNAME=$1
 shift
 
-NETWORK="${OUTNAME}-mutual_mention_network.csv"
+NETWORK="${OUTNAME}-mention_network.csv"
 check_file_absent $NETWORK
 mention_network $NETWORK $@
 
