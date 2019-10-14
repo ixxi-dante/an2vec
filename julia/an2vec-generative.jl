@@ -82,6 +82,16 @@ function parse_cliargs()
             help = "seed for generation of the graph"
             arg_type = Int
             default = -1
+        "--diml1enc"
+            help = "dimension of intermediary encoder layer"
+            arg_type = Int
+            # default = 10
+            required = true
+        "--diml1dec"
+            help = "dimension of intermediary decoder layer"
+            arg_type = Int
+            # default = 10
+            required = true
         "--dimxiadj"
             help = "embedding dimensions for adjacency"
             arg_type = Int
@@ -158,8 +168,6 @@ function parse_cliargs()
         end
         (VAE.Normal, _dimfeat, _dimlabels)
     end
-    parsed["diml1enc"] = Int64(round(geomean([dimfeat, parsed["dimxiadj"] + parsed["dimxifeat"]])))
-    parsed["diml1dec"] = Int64(round(geomean([dimlabels, parsed["dimxiadj"] + parsed["dimxifeat"]])))
     parsed
 end
 
