@@ -274,7 +274,7 @@ def cluster_word_vectors(args, w2v_model):
     """Cluster word vectors save the association of cluster to words,
     and return the association of word to cluster."""
 
-    vocabulary = w2v_model.wv.vocab.keys()
+    vocabulary = list(w2v_model.wv.vocab.keys())
     logging.info("Cluster Word2Vec's %s words into %s clusters",
                  len(vocabulary), args.nclusters)
 
