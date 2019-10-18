@@ -74,12 +74,12 @@ def parse_args():
     parser.add_argument('--cluster2words_path', type=str,
                         help="Path to save the pickled assocation of a cluster "
                         "to its words; if not provided, skip saving")
-    parser.add_argument('--uid2orig_path', type=str, required=True,
+    parser.add_argument('--uid2orig_path', type=str,
                         help="Path to save the pickled map of user ids to "
                         "ids in the full graph (extracted from "
                         "weighted_edgelist_path); if not provided, skip "
                         "saving")
-    parser.add_argument('--orig2lcc_path', type=str, required=True,
+    parser.add_argument('--orig2lcc_path', type=str,
                         help="Path to save the pickled map of indices in the "
                         "full graph to indices in the mutual mention largest "
                         "connected component; if not provided, skip saving")
