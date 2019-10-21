@@ -353,7 +353,7 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
 
     logging.info("%s users with all-zero features (none of their "
                  "words are in our clustering)",
-                 user_features.shape[0] - len(nonzero_users))
+                 user_features_lcc.shape[0] - len(nonzero_users))
     return coo_matrix(user_features_lcc)
 
 
