@@ -54,6 +54,8 @@ def parse_args():
     parser.add_argument('--w2v_iter', type=int, required=True,
                         help="Number of epochs for which word2vec should "
                         "go over the data (e.g. 10)")
+    parser.add_argument('--cluster_hashtags_only', type=bool, required=True,
+                        help="Whether to cluster only hashtags or all words")
     parser.add_argument('--nclusters', type=int, required=True,
                         help="Number of clusters to compute for word vectors "
                         "(e.g. 100)")
@@ -97,6 +99,11 @@ def parse_args():
         logging.warning("Will not save orig2lcc")
 
     return args
+
+
+def is_hashtag(word):
+    """Test if a word is a hashtag."""
+    return len(word) > 1 and word.startswith('#')
 
 
 def is_edge_mutual(graph, edge, threshold):
@@ -281,14 +288,19 @@ def cluster_word_vectors(args, w2v_model):
     and return the association of word to cluster."""
 
     vocabulary = list(w2v_model.wv.vocab.keys())
-    logging.info("Cluster Word2Vec's %s words into %s clusters",
-                 len(vocabulary), args.nclusters)
+    if args.cluster_hashtags_only:
+        _w_ht = 'hashtag'
+        vocabulary = list(filter(is_hashtag, vocabulary))
+    else:
+        _w_ht = 'word'
+    logging.info("Cluster Word2Vec's %s %ss into %s clusters",
+                 len(vocabulary), _w_ht, args.nclusters)
 
-    logging.info("Get normalised word vectors")
+    logging.info("Get normalised %s vectors", _w_ht)
     vectors = w2v_model.wv[vocabulary]
     vectors_normalised = np.array([gensim.matutils.unitvec(vec)
                                    for vec in vectors])
-    logging.info("Pre-compute word similarities")
+    logging.info("Pre-compute %s similarities", _w_ht)
     similarities = pairwise_kernels(vectors_normalised, metric="cosine",
                                     n_jobs=args.nworkers)
     # cosine goes from -1 to 1, when we want similarities going from 0 to 1
@@ -296,12 +308,12 @@ def cluster_word_vectors(args, w2v_model):
     similarities[similarities < SIMILARITIES_THRESHOLD] = \
         SIMILARITIES_THRESHOLD
 
-    logging.info("Spectral-cluster based on word similarities")
+    logging.info("Spectral-cluster based on %s similarities", _w_ht)
     spectral = SpectralClustering(n_clusters=args.nclusters,
                                   affinity="precomputed",
                                   n_jobs=args.nworkers)
     spectral.fit(similarities)
-    logging.info("Get each word's cluster and each cluster's words")
+    logging.info("Get each %s's cluster and each cluster's %ss", _w_ht, _w_ht)
     cluster2words = defaultdict(list)
     word2cluster = dict()
     for i, cluster in enumerate(spectral.fit_predict(similarities)):
@@ -322,7 +334,7 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
     """Build the COO matrix of user features, for users in
     the mutual mention largest connected component."""
 
-    logging.info("Build user feature matrix from the cluster of their words")
+    logging.info("Build user feature matrix from word/hashtag clustering")
     rows = []
     cols = []
     data = []
@@ -365,7 +377,7 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
 
 def main():
     """Read csv edgelist and tweets, get the mutual mention largest
-    connected component, compute Word2Vec vectors, cluster them,
+    connected component, compute Word2Vec vectors, cluster words or hashtags,
     and save the adjacency matrix and user features to a format
     usable by an2vec."""
 
