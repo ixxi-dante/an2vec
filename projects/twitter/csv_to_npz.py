@@ -43,9 +43,12 @@ def parse_args():
                             "them, and save the adjacency matrix and user "
                             "features to a format usable by an2vec.")
 
-    parser.add_argument('--threshold', type=int, required=True,
+    parser.add_argument('--mutual_threshold', type=int, required=True,
                         help="Number of mutual mentions at or above which "
                         "we create an edge (e.g. 5)")
+    parser.add_argument('--tweet_min_words', type=int, required=True,
+                        help="Minimal number of words for a tweet to be "
+                        "included in Word2Vec (e.g. 3)")
     parser.add_argument('--w2v_dim', type=int, required=True,
                         help="Dimension of word2vec vectors (e.g. 50)")
     parser.add_argument('--w2v_iter', type=int, required=True,
@@ -72,8 +75,9 @@ def parse_args():
                         "an2vec")
 
     parser.add_argument('--cluster2words_path', type=str,
-                        help="Path to save the pickled assocation of a cluster "
-                        "to its words; if not provided, skip saving")
+                        help="Path to save the pickled assocation of a "
+                        "cluster to its words; if not provided, "
+                        "skip saving")
     parser.add_argument('--uid2orig_path', type=str,
                         help="Path to save the pickled map of user ids to "
                         "ids in the full graph (extracted from "
@@ -165,12 +169,13 @@ def csv_to_adj(filepath):
     return adj, uid2adj
 
 
-def build_adj_lcc(args, filepath):
+def build_adj_lcc(args):
     """Build the mutual mention largest connected component from
     a csv edgelist with weights."""
 
-    logging.info("Read '%s' into an adjacency matrix", filepath)
-    adj_orig, uid2orig = csv_to_adj(filepath)
+    logging.info("Read '%s' into an adjacency matrix",
+                 args.weighted_edgelist_path)
+    adj_orig, uid2orig = csv_to_adj(args.weighted_edgelist_path)
 
     logging.info("Convert adjacency matrix to a graph")
     g_orig = nx.from_scipy_sparse_matrix(adj_orig, create_using=nx.DiGraph,
@@ -180,7 +185,7 @@ def build_adj_lcc(args, filepath):
     g_mutual = nx.edge_subgraph(
         g_orig,
         [e for e in g_orig.edges
-         if is_edge_mutual(g_orig, e, args.threshold)]
+         if is_edge_mutual(g_orig, e, args.mutual_threshold)]
     )
     g_mutual = nx.Graph(g_mutual)
 
@@ -195,7 +200,8 @@ def build_adj_lcc(args, filepath):
         "Mutual mention lcc does not cover all node ids"
 
     logging.info("Convert largest connected component to adjacency matrix")
-    adj_lcc = nx.to_scipy_sparse_matrix(g_lcc, dtype=np.uint32, weight='weight',
+    adj_lcc = nx.to_scipy_sparse_matrix(g_lcc, dtype=np.uint32,
+                                        weight='weight',
                                         nodelist=sorted(g_lcc.nodes()))
     adj_lcc = coo_matrix(adj_lcc)
 
@@ -205,7 +211,7 @@ def build_adj_lcc(args, filepath):
     return adj_lcc, uid2orig, orig2lcc
 
 
-def build_uid2tweets(filepath, uid2orig, orig2lcc):
+def build_uid2tweets(args, uid2orig, orig2lcc):
     """Build the association of user ids to user tweets (split on words,
     filtered for useless words)."""
 
@@ -214,9 +220,9 @@ def build_uid2tweets(filepath, uid2orig, orig2lcc):
     nextid = len(uid2orig)
 
     logging.info("Read '%s' into an ossociation of user ids to tweets",
-                 filepath)
+                 args.user_tweets_path)
     stopwords = get_stopwords()
-    with open(filepath, "r") as tweetsfile:
+    with open(args.user_tweets_path, "r") as tweetsfile:
         for line in tweetsfile:
             # Extract user id and tweet from the line
             parts = line.split()
@@ -230,8 +236,8 @@ def build_uid2tweets(filepath, uid2orig, orig2lcc):
                         or (word.isalpha() and word not in stopwords)):
                     tweet_clean.append(word)
 
-            # Tweets with less than 3 words don't contain any information
-            if len(tweet_clean) < 3:
+            # Tweets with less than a few words don't contain any information
+            if len(tweet_clean) < args.tweet_min_words:
                 continue
 
             # Some users are not in the full graph
@@ -364,9 +370,8 @@ def main():
     usable by an2vec."""
 
     args = parse_args()
-    adj_lcc, uid2orig, orig2lcc = \
-        build_adj_lcc(args, args.weighted_edgelist_path)
-    uid2tweets = build_uid2tweets(args.user_tweets_path, uid2orig, orig2lcc)
+    adj_lcc, uid2orig, orig2lcc = build_adj_lcc(args)
+    uid2tweets = build_uid2tweets(args, uid2orig, orig2lcc)
     w2v_model = build_w2v_model(args, uid2tweets)
     word2cluster = cluster_word_vectors(args, w2v_model)
     user_features_lcc = build_user_features_lcc(uid2orig, orig2lcc,
