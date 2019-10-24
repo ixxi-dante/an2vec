@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import networkx as nx
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, csr_matrix
 from gensim.models import Word2Vec
 import gensim
 from sklearn.metrics.pairwise import pairwise_kernels
@@ -360,8 +360,7 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
                  "mention largest connected component")
     lcc2orig_list = list(map(itemgetter(0),
                              sorted(orig2lcc.items(), key=itemgetter(1))))
-    user_features_lcc = user_features\
-        .toarray()[lcc2orig_list, :]\
+    user_features_lcc = csr_matrix(user_features)[lcc2orig_list, :]\
         .astype(np.float)
 
     logging.info("l1-normalise user features")
