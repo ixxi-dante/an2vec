@@ -351,7 +351,7 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
     cols = np.array(cols)
     data = np.array(data)
     check_uint32_encodable(data)
-    nids = len(uid2tweets)
+    nids = len(uid2orig)
     user_features = coo_matrix((data, (rows, cols)), shape=(nids, nids),
                                dtype=np.uint32)
     user_features.sum_duplicates()
