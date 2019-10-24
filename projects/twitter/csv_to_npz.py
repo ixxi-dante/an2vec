@@ -351,7 +351,9 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
     cols = np.array(cols)
     data = np.array(data)
     check_uint32_encodable(data)
-    user_features = coo_matrix((data, (rows, cols)), dtype=np.uint32)
+    nids = len(uid2tweets)
+    user_features = coo_matrix((data, (rows, cols)), shape=(nids, nids),
+                               dtype=np.uint32)
     user_features.sum_duplicates()
 
     logging.info("Keep only users present in the mutual "
