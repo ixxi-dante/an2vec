@@ -365,10 +365,8 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
 
     logging.info("l1-normalise user features")
     nonzero_users = np.where(user_features_lcc.sum(1))[0]
-    user_features_lcc[nonzero_users] = (
-        user_features_lcc[nonzero_users]
-        / user_features_lcc[nonzero_users].sum(1, keepdims=True)
-    )
+    user_features_lcc[nonzero_users] = user_features_lcc[nonzero_users]\
+        .multiply(1 / user_features_lcc[nonzero_users].sum(1))
 
     logging.info("%s users with all-zero features (none of their "
                  "words are in our clustering)",
