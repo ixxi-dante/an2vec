@@ -375,14 +375,14 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
     user_features_lcc = csr_matrix(user_features)[lcc2orig_list, :]\
         .astype(np.float)
 
-    logging.info("l1-normalise user features")
     nonzero_users = np.where(user_features_lcc.sum(1))[0]
-    user_features_lcc[nonzero_users] = user_features_lcc[nonzero_users]\
-        .multiply(1 / user_features_lcc[nonzero_users].sum(1))
-
     logging.info("%s users with all-zero features (none of their "
                  "words are in our clustering)",
                  user_features_lcc.shape[0] - len(nonzero_users))
+    logging.info("l1-normalise user features")
+    user_features_lcc[nonzero_users] = user_features_lcc[nonzero_users]\
+        .multiply(1 / user_features_lcc[nonzero_users].sum(1))
+
     return coo_matrix(user_features_lcc)
 
 
