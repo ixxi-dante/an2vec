@@ -226,7 +226,7 @@ def build_uid2tweets(args, uid2orig, orig2lcc):
     uid2tweets = defaultdict(list)
     nextid = len(uid2orig)
 
-    logging.info("Read '%s' into an ossociation of user ids to tweets",
+    logging.info("Read '%s' into an association of user ids to tweets",
                  args.user_tweets_path)
     stopwords = get_stopwords()
     with open(args.user_tweets_path, "r") as tweetsfile:
