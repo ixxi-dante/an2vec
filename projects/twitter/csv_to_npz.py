@@ -15,7 +15,7 @@ import logging
 import itertools
 from operator import itemgetter
 from collections import defaultdict
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 
 import numpy as np
 import networkx as nx
@@ -31,6 +31,17 @@ SIMILARITIES_THRESHOLD = 1e-9
 
 logging.basicConfig()
 logging.root.setLevel(logging.NOTSET)
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise ArgumentTypeError('Boolean value expected.')
 
 
 def parse_args():
@@ -54,7 +65,8 @@ def parse_args():
     parser.add_argument('--w2v_iter', type=int, required=True,
                         help="Number of epochs for which word2vec should "
                         "go over the data (e.g. 10)")
-    parser.add_argument('--cluster_hashtags_only', type=bool, required=True,
+    parser.add_argument('--cluster_hashtags_only', type=str2bool,
+                        required=True,
                         help="Whether to cluster only hashtags or all words")
     parser.add_argument('--nclusters', type=int, required=True,
                         help="Number of clusters to compute for word vectors "
