@@ -363,8 +363,9 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
     cols = np.array(cols)
     data = np.array(data)
     check_uint32_encodable(data)
-    nids = len(uid2orig)
-    user_features = coo_matrix((data, (rows, cols)), shape=(nids, nids),
+    user_features = csr_matrix((data, (rows, cols)),
+                               shape=(len(uid2orig),
+                                      1 + max(word2cluster.values())),
                                dtype=np.uint32)
     user_features.sum_duplicates()
 
@@ -372,7 +373,7 @@ def build_user_features_lcc(uid2orig, orig2lcc, uid2tweets, word2cluster):
                  "mention largest connected component")
     lcc2orig_list = list(map(itemgetter(0),
                              sorted(orig2lcc.items(), key=itemgetter(1))))
-    user_features_lcc = csr_matrix(user_features)[lcc2orig_list, :]\
+    user_features_lcc = user_features[lcc2orig_list, :]\
         .astype(np.float)
 
     nonzero_users = np.where(user_features_lcc.sum(1))[0]
