@@ -132,3 +132,7 @@ sosweet-scripts/iter-gz \
     $(ls datasets/sosweet-text/*-csv)
 ```
 
+License
+-------
+
+This code is under Inria's copyright, and licensed under GPLv3+ in agreement with them.
